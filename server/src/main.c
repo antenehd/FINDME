@@ -15,7 +15,7 @@
 int main()
 {
 
-int8 achTestArray[] = {"1000001$QUERY$NAME$raghu$10.19.19\n"}; 
+/*int8 achTestArray[] = {"1000001$QUERY$NAME$raghu$10.19.19\n"};*/ 
 
 /*TODO message queues and sockets*/
 pthread_t prcs_thread = {0};
@@ -33,6 +33,7 @@ if(pthread_create(&sync_thread, NULL , &SyncThreadStart, NULL) != 0){
 	}
 
 HandleClientReceivedMsg(NULL);
+HandleServerReceivedMsg(NULL);
 pthread_join(sync_thread , NULL);
 return 0;
 
