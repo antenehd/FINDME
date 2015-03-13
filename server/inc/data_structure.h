@@ -14,6 +14,7 @@
 #define ADDRESS      0x00000004
 #define LOCATION     0x00000008
 #define TIMESTAMP    0x00000010
+#define CLIENTID     0x00000020
 /*second byte for Error type*/
 #define NOTYPE       0x00010000
 #define NOREC        0x00020000
@@ -54,13 +55,17 @@ struct sockaddr *strcvd_addr;
 int8 *achBuffer;
 }stRcvdMsg;
 
-typedef enum _msgtypes
+typedef struct HashRecord_s 
 {
-TNAME,
-TEMAIL,
-TADDR,
-TLOCT,
-TNOREC,
-TNOTYPE
-}eMsgType;
+  int32 i32key;
+  stRecord * pstValue;
+  struct HashRecord_s * pstnext;
+}HashRecord_t; 
+
+typedef struct HashTable_s
+{
+ int32 i32size;
+ HashRecord_t **pstTable;
+}HashTable_t;
+
 #endif

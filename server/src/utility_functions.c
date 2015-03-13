@@ -12,17 +12,97 @@
 #include "proto_types.h"
 
 uint64 gi64ServID = 0;
+uint64 gi64StartID;
+uint64 gi64EndID = 100000000;
+
+extern HashTable_t  *gpHashTable;
 
 
-stRecord *  CreateRecord(uint64 ui64ID)
+HashTable_t * CreateHash(int32 i32size)
 {
 
-/*Create a node and add to the link list*/
+HashTable_t * HashTable = NULL;
+int32 i32Count = 0;
+if(i32size > 65535 || i32size < 1)
+return NULL;
 
+HashTable = malloc(sizeof(HashTable_t));
+HashTable->i32size = i32size;
+HashTable->pstTable = malloc(sizeof(HashRecord_t *) * i32size);
+
+if(NULL != HashTable)
+{
+    for(i32Count = 0; i32Count < i32size ; i32Count++)
+    { 
+        HashTable->pstTable[i32Count] = malloc(sizeof(HashRecord_t));
+        HashTable->pstTable[i32Count]->i32key = i32Count;
+        HashTable->pstTable[i32Count]->pstValue = NULL;
+        HashTable->pstTable[i32Count]->pstnext = NULL;
+    }
+return HashTable;
+} 
 return NULL;
 }
 
 
+void InsertRecord(stRecord * pstNewRecord)
+{
+  uint32 ui32Key;
+  HashRecord_t * pstNewHashRec = NULL;
+  HashRecord_t * pstLastHashRec = NULL;
+
+  ui32Key = (pstNewRecord->ui64RecNum % gpHashTable->i32size);
+
+ /*TODO:acquire mutex here*/
+  if(NULL != pstNewRecord)
+  {
+     if(gpHashTable->pstTable[ui32Key]->pstValue == NULL) 
+     {
+       gpHashTable->pstTable[ui32Key]->pstValue = pstNewRecord;
+     }
+     else
+     {
+       pstLastHashRec = gpHashTable->pstTable[ui32Key];
+
+       while(pstLastHashRec->pstnext != NULL)
+       {
+          pstLastHashRec = pstLastHashRec->pstnext;
+       }
+
+       pstNewHashRec = malloc(sizeof(HashRecord_t));
+       if(NULL != pstNewHashRec)
+       {
+           pstNewHashRec->i32key = ui32Key;
+           pstNewHashRec->pstValue = pstNewRecord;
+           pstNewHashRec->pstnext=  NULL;
+           pstLastHashRec->pstnext = pstNewHashRec;
+       }
+     }
+  }
+
+}
+
+stRecord *  CreateRecord(uint64 ui64ID)
+{
+   stRecord * pstNewRecord = NULL;
+
+   pstNewRecord = malloc(sizeof(stRecord));
+   if(NULL != pstNewRecord)
+   {
+       /*Create a node and add to the link list*/
+       pstNewRecord->ui64RecNum = ui64ID;
+       InsertRecord(pstNewRecord);
+   }
+   return pstNewRecord;
+}
+
+/*TODO :
+1) create message
+2) create record
+3) Assign ID
+4) Read configurations
+5) Create message queues
+6) Implement search*/
 
 void freeMsg(stRcvdMsg * pstRcvdMsg)
 {
@@ -42,30 +122,65 @@ void freeMsg(stRcvdMsg * pstRcvdMsg)
 
 void AssignIDToCli(stRcvdMsg * pstRcvdMsg)
 {
-  uint64 ui64ID = 0; 
+
+  static uint64 ui64ClientID = 1;
+  uint32 ui32BitMask = 0;
+  stRecord * pstRedAdd = NULL;
+
   /*read from the config file for the range applicable to client*/
 
  /*Then for the message and send to client*/
+  if((ui64ClientID > gi64StartID)  && (ui64ClientID < gi64EndID))
+  {
+     ui64ClientID++;
+     pstRedAdd = CreateRecord(ui64ClientID);
+     ui32BitMask += CLIENT|CLIENTID;
+     PrepareCliRsp(pstRcvdMsg,pstRedAdd,ui32BitMask);
+     /*TODO : Prepare and send*/
+     freeMsg(pstRcvdMsg);
+  }
+
  
  printf("In fucntion %s\n",__FUNCTION__);
 
-  CreateRecord(ui64ID);
-  freeMsg(pstRcvdMsg);
 }
 
 
 stRecord * SearchRecord(uint64 ui64Id)
 {
+
+  int32 i32key = 0;
+  HashRecord_t * pstPlaceHolder = NULL;
+
   /*Start from the head pointer and search linearly*/
  printf("In fucntion %s\n",__FUNCTION__);
- 
- return NULL;
+ /*TODO: acquire mutex here*/
+ i32key = ui64Id % gpHashTable->i32size;
+ pstPlaceHolder = gpHashTable->pstTable[i32key];
+ if((pstPlaceHolder->pstValue != NULL))
+ {
+    if((pstPlaceHolder->pstnext != NULL)) 
+   {
+       while(( pstPlaceHolder->pstnext != NULL  ) && 
+            (pstPlaceHolder->pstValue->ui64RecNum != ui64Id))          
+       {
+           pstPlaceHolder = pstPlaceHolder->pstnext;
+       }       
+   }
+   if((NULL != pstPlaceHolder->pstValue) && 
+     (pstPlaceHolder->pstValue->ui64RecNum == ui64Id))
+     {  
+        return pstPlaceHolder->pstValue;
+     }
+ }  
+   return NULL; 
 }
 
 void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMask)
 {
  
   int8 * pachRepBuff = NULL;
+  int8 achBuff[20] = {0};
 
   pachRepBuff = (int8 *) malloc(MAX_MSG_LEN); 
   printf("In fucntion %s\n",__FUNCTION__);
@@ -79,7 +194,7 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
       {
           strcat(pachRepBuff , REPLY);
       }
-      else
+      else if((ui32BitMask & SERVER) != 0)
       {
           if((ui32BitMask & UPDATE) != 0)
           {
@@ -90,6 +205,12 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
               strcat(pachRepBuff , "NEW");      
           }    
       }
+      else
+      {
+        /*unknown type*/
+          free(pachRepBuff);
+          return;
+      }
       strcat(pachRepBuff , DELIMITER);
 
       if((ui32BitMask & NAME) != 0)
@@ -97,6 +218,14 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
          strcat(pachRepBuff , "NAME");
          strcat(pachRepBuff , DELIMITER);
          strcat(pachRepBuff,pstRedAdd->achName);          
+         strcat(pachRepBuff , DELIMITER);
+      }
+      if((ui32BitMask & CLIENTID) != 0)
+      {
+         strcat(pachRepBuff , "CLIENTID");
+         strcat(pachRepBuff , DELIMITER);
+         snprintf(achBuff , 20,"%ld", pstRedAdd->ui64RecNum);
+         strcat(pachRepBuff,achBuff);          
          strcat(pachRepBuff , DELIMITER);
       }
       else if((ui32BitMask & EMAIL) != 0)
