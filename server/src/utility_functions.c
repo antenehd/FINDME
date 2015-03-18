@@ -11,9 +11,9 @@
 #include "data_structure.h"
 #include "proto_types.h"
 
-uint64 gi64ServID = 0;
+uint64 gi64ServID = 10000000;
 uint64 gi64StartID;
-uint64 gi64EndID = 100000000;
+uint64 gi64EndID = 1000000;
 
 extern HashTable_t  *gpHashTable;
 
@@ -132,12 +132,11 @@ void AssignIDToCli(stRcvdMsg * pstRcvdMsg)
  /*Then for the message and send to client*/
   if((ui64ClientID > gi64StartID)  && (ui64ClientID < gi64EndID))
   {
-     ui64ClientID++;
-     pstRedAdd = CreateRecord(ui64ClientID);
+     pstRedAdd = CreateRecord(gi64ServID+ui64ClientID);
      ui32BitMask += CLIENT|CLIENTID;
      PrepareCliRsp(pstRcvdMsg,pstRedAdd,ui32BitMask);
+     ui64ClientID++;
      /*TODO : Prepare and send*/
-     freeMsg(pstRcvdMsg);
   }
 
  
@@ -188,7 +187,7 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
   if((NULL != pstRcvdMsg) && (NULL != pachRepBuff))
   {
       memset(pachRepBuff , 0 , MAX_MSG_LEN);
-      snprintf(pachRepBuff, sizeof(uint64),"%8ld",gi64ServID);
+      snprintf(pachRepBuff, sizeof(uint64),"%ld",gi64ServID);
       strcat(pachRepBuff , DELIMITER);
       if((ui32BitMask & CLIENT) != 0)
       {
@@ -212,14 +211,7 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
           return;
       }
       strcat(pachRepBuff , DELIMITER);
-
-      if((ui32BitMask & NAME) != 0)
-      {
-         strcat(pachRepBuff , "NAME");
-         strcat(pachRepBuff , DELIMITER);
-         strcat(pachRepBuff,pstRedAdd->achName);          
-         strcat(pachRepBuff , DELIMITER);
-      }
+      
       if((ui32BitMask & CLIENTID) != 0)
       {
          strcat(pachRepBuff , "CLIENTID");
@@ -228,7 +220,14 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
          strcat(pachRepBuff,achBuff);          
          strcat(pachRepBuff , DELIMITER);
       }
-      else if((ui32BitMask & EMAIL) != 0)
+      if((ui32BitMask & NAME) != 0)
+      {
+         strcat(pachRepBuff , "NAME");
+         strcat(pachRepBuff , DELIMITER);
+         strcat(pachRepBuff,pstRedAdd->achName);          
+         strcat(pachRepBuff , DELIMITER);
+      }      
+      if((ui32BitMask & EMAIL) != 0)
       {
          strcat(pachRepBuff , "EMAIL");
          strcat(pachRepBuff , DELIMITER);          
@@ -236,7 +235,7 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
          strcat(pachRepBuff , DELIMITER);
 
       }
-      else if((ui32BitMask & ADDRESS) != 0)
+      if((ui32BitMask & ADDRESS) != 0)
       {
          strcat(pachRepBuff , "ADDRESS");
          strcat(pachRepBuff , DELIMITER);          
@@ -244,7 +243,7 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
          strcat(pachRepBuff , DELIMITER);
 
       }
-      else if((ui32BitMask & LOCATION) != 0)
+      if((ui32BitMask & LOCATION) != 0)
       {
          strcat(pachRepBuff , "LOCATION");
          strcat(pachRepBuff , DELIMITER);          
@@ -252,19 +251,20 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
          strcat(pachRepBuff , DELIMITER);
 
       }
-      else if((ui32BitMask & NOTYPE) != 0)
+      if((ui32BitMask & NOTYPE) != 0)
       {
          strcat(pachRepBuff , "NOTYPE");
          strcat(pachRepBuff , DELIMITER);          
 
       }
-      else if((ui32BitMask & NOREC) != 0)
+      if((ui32BitMask & NOREC) != 0)
       {
          strcat(pachRepBuff , "NOREC");
          strcat(pachRepBuff , DELIMITER);          
 
       }
-      pachRepBuff[strlen(pachRepBuff)] = '\0';
+      pachRepBuff[strlen(pachRepBuff)-1] = '\0';
+      printf("Buffer: %s\n",pachRepBuff);
      /*TODO: Add sending part*/ 
      freeMsg(pstRcvdMsg);
   }
@@ -292,30 +292,30 @@ void HandleCliQuery(stRcvdMsg * pstRcvdMsg , int8 * pi8MsgPtr,uint64 ui64ID)
          pi8Value = strtok_r(NULL , DELIMITER , &pi8SavePtr);
          if(0 == strcmp(pi8Token,"NAME"))
          {
-              ui32BitMask |= EMAIL|ADDRESS|LOCATION;
+              ui32BitMask |= EMAIL|ADDRESS|LOCATION|CLIENT;
          }
          else if(0 == strcmp(pi8Token,"EMAIL"))
          {
-              ui32BitMask |= NAME|ADDRESS|LOCATION;
+              ui32BitMask |= NAME|ADDRESS|LOCATION|CLIENT;
          }
          else if(0 == strcmp(pi8Token,"LOCATION"))
          {
-              ui32BitMask |= NAME|EMAIL|ADDRESS;
+              ui32BitMask |= NAME|EMAIL|ADDRESS|CLIENT;
          }
          else if(0 == strcmp(pi8Token,"ADDRESS"))
          {
-              ui32BitMask |= NAME|EMAIL|LOCATION;
+              ui32BitMask |= NAME|EMAIL|LOCATION|CLIENT;
          }
          else
          {
-              ui32BitMask |= NOTYPE;
+              ui32BitMask |= NOTYPE|CLIENT;
              /*Send error message for unknown query*/
          }
      } 
     else
     {
        /*Requested Client not found , send error message to client*/
-              ui32BitMask |= NOREC;
+              ui32BitMask |= NOREC|CLIENT;
        
     }
     PrepareCliRsp(pstRcvdMsg,pstRedAdd,ui32BitMask);
@@ -326,9 +326,9 @@ void HandleCliQuery(stRcvdMsg * pstRcvdMsg , int8 * pi8MsgPtr,uint64 ui64ID)
 
 int32 isclient(uint64 ui64ID)
 {
- 
+uint64 ui64Temp =ui64ID - gi64ServID; 
 /*Use the range specified in the configfile, this is just a test value*/
-   if((ui64ID > 10000000) && (ui64ID < 20000000))
+   if((ui64Temp > gi64StartID)  && (ui64Temp < gi64EndID))
    {
       return 0;
    }
@@ -350,7 +350,7 @@ void HandleCliUpdate(stRcvdMsg * pstRcvdMsg , int8 * pi8MsgPtr ,uint64 ui64ID)
             }
             else
             {
-              ui32BitMask |= SERVER|UPDATE;
+              ui32BitMask |= SERVER|UPDATE|CLIENTID;
             }
         }     
         PrepareCliRsp(pstRcvdMsg,pstRedAdd,ui32BitMask);   
@@ -384,7 +384,7 @@ if(NULL != pstRcvdMsg)
             {
                HandleCliQuery(pstRcvdMsg , pi8SavePtr,ui64ID);
             }
-            if(0 == (strcmp(pi8Token , "UPDATE")))
+            else if(0 == (strcmp(pi8Token , "UPDATE")))
             {
                HandleCliUpdate(pstRcvdMsg , pi8SavePtr,ui64ID);
             } 
@@ -417,7 +417,8 @@ uint32 FillRecord(stRecord * pstActRec,int8 * pi8MsgPtr)
 
  if((NULL != pstRedAdd) && (NULL != pi8MsgPtr) && (NULL != pstActRec))
  {
-    memset(pstActRec,0,sizeof(sizeof(stRecord)));
+    memset(pstRedAdd,0,sizeof(sizeof(stRecord)));
+    pstRedAdd->ui64LastUpdate = 0;
     pi8Token = strtok_r(pi8MsgPtr , DELIMITER , &pi8SavePtr);
     pi8Value = strtok_r(NULL , DELIMITER , &pi8SavePtr);
  
@@ -454,13 +455,14 @@ uint32 FillRecord(stRecord * pstActRec,int8 * pi8MsgPtr)
    } 
 
    /*update only if it is latest*/
-   if(pstActRec->ui64LastUpdate <  pstRedAdd->ui64LastUpdate)
+   if((pstActRec->ui64LastUpdate <  pstRedAdd->ui64LastUpdate) || (pstActRec->ui32ContentFull == 0))
    {
+      pstActRec->ui32ContentFull = 1; 
       if((NAME & ui32BitMask)!= 0)
       {
          strncpy(pstActRec->achName, pstRedAdd->achName ,strlen(pstRedAdd->achName));
       }
-      else if((EMAIL & ui32BitMask)!= 0)
+      if((EMAIL & ui32BitMask)!= 0)
       {
          strncpy(pstActRec->achEmail, pstRedAdd->achEmail,strlen(pstRedAdd->achEmail));
       }
@@ -472,10 +474,14 @@ uint32 FillRecord(stRecord * pstActRec,int8 * pi8MsgPtr)
       {
          strncpy(pstActRec->achLastKnownLoc, pstRedAdd->achLastKnownLoc ,strlen(pstRedAdd->achLastKnownLoc));
       }	
-      else if((TIMESTAMP & ui32BitMask)!= 0)
+      if((TIMESTAMP & ui32BitMask)!= 0)
       {
          pstActRec->ui64LastUpdate = pstRedAdd->ui64LastUpdate;
       }
+   }
+   else
+   {
+      ui32BitMask = 0;
    }
    free(pstRedAdd);
  } 
@@ -525,15 +531,19 @@ if(NULL !=  pstRcvdMsg && (NULL != pi8MsgPtr))
 {
     
   pi8Token = strtok_r(pi8MsgPtr , DELIMITER , &pi8SavePtr);
-  ui64RecId = strtol(pi8Token,NULL,0);
+  if(0 == strcmp(pi8Token , "CLIENTID"))
+  {
+     pi8Token = strtok_r(NULL , DELIMITER , &pi8SavePtr);
+     ui64RecId = strtol(pi8Token,NULL,0);
 
   /*Look for the client record and then update the client*/
-    if(NULL != (pstRedAdd = SearchRecord(ui64RecId)))
-    {     
-        FillRecord(pstRedAdd,pi8MsgPtr);
-    }
-  freeMsg(pstRcvdMsg);
-}
+     if(NULL != (pstRedAdd = SearchRecord(ui64RecId)))
+     {     
+        FillRecord(pstRedAdd,pi8SavePtr);
+     }
+  }
+  freeMsg(pstRcvdMsg); 
+ }
 }
 
 void HandleServerReceivedMsg(stRcvdMsg * pstRcvdMsg)
@@ -558,7 +568,7 @@ if(NULL !=  pstRcvdMsg)
             {
                HandleServNew(pstRcvdMsg , pi8SavePtr,ui64ID);
             }
-            if(0 == (strcmp(pi8Token , "UPDATE")))
+            else if(0 == (strcmp(pi8Token , "UPDATE")))
             {
                HandleServUpdate(pstRcvdMsg , pi8SavePtr);
             }
