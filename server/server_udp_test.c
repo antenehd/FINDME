@@ -15,14 +15,36 @@
 #include <pthread.h>
 #include <netdb.h>
 
-#define MSGMAXLEN 5
+#define MSGLENGHT 5
 #define LISTENQ 5
-#define QUEUEMAXMSG 50
+
+int send_datagram(uint8_t type, uint32_t request_aux, int listenfd, const struct sockaddr *cli_addr6,socklen_t len){
+
+	int n;
+   char * string;
+   uint32_t request;
+	char buff[80];
+   
+   string = malloc(5);
+   memset(&buff, 0, sizeof(buff));
+   memcpy(string,&type,1);
+   request = htonl((uint32_t) request_aux);
+   memcpy((string+1),&request,8);
+   //printf("Datagram to be sent %s\n",string);
+   if ( (n = sendto(listenfd, string, MSGLENGHT, 0, cli_addr6, len)) < 0) {
+         perror("sendto");
+         return;
+   }
+   printf("Datagram sent and %d bytes\n",n);
+   //printf("%s, port %d\n", inet_ntop(AF_INET6, (const struct sockaddr *) &cli_addr6.sin6_addr,buff, sizeof(buff)),ntohs(cli_addr6.sin6_port));
+   free(string);
+   return n;
+}
 
 int main(int argc, char **argv)
 {
-   int n;
-	int listenfd;
+   int n,i;
+	int sockfd,listenfd;
 	int server_port6;
 	char * string;
 	struct sockaddr_in6 cli_addr6;
@@ -37,7 +59,7 @@ int main(int argc, char **argv)
 
    /* memory and variables initialization  */ 
 	string = malloc(150);
-	server_port6 = 22222;
+	server_port6 = 44444;
 	len = sizeof(cli_addr6);
 	
 	/* IPV6 server configuration */
@@ -46,13 +68,11 @@ int main(int argc, char **argv)
 	//local_addr6.sin6_addr = in6addr_any;
 	local_addr6.sin6_port = htons(server_port6);
 	
-	
 	if (inet_pton(AF_INET6, "2001:708:40:2001:0:38:3610:1", &local_addr6.sin6_addr) <= 0) {
- 		fprintf(stderr, "inet_pton error for IPV6");
+		fprintf(stderr, "inet_pton error for IPV6");
 	return -1;
 	}
-	
-	    
+		    
 	if ((listenfd = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
 		perror("socket error");
 		return -1;
@@ -62,11 +82,33 @@ int main(int argc, char **argv)
 		perror("bind");
 		return -1;
 	}
+	/* ready to listen to datagram but nobody knows we are here */
+	
+	/* IPV6 client configuration */	
+	if ( (sockfd = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
+		perror("socket error");
+		return -1;
+	 }
+	memset(&cli_addr6, 0, sizeof(cli_addr6));
+	cli_addr6.sin6_family = AF_INET6;
+	// cli_addr6.sin6_addr = in6addr_any;
+	cli_addr6.sin6_port = htons(22222);
+	
+	if (inet_pton(AF_INET6, "2001:708:40:2001:0:38:3610:1", &cli_addr6.sin6_addr) <= 0) {
+ 		fprintf(stderr, "inet_pton error for IPV6 195.148.124.76");
+	return -1;
+	}
+	
+	for (i = 0; i < 100; i ++){
+		//printf("Sending datagram to %s, port %d\n", inet_ntop(AF_INET6, &cli_addr6.sin6_addr,buff, sizeof(buff)),ntohs(cli_addr6.sin6_port));	
+		send_datagram(2,2,sockfd, (struct sockaddr *) &cli_addr6,len);
+	}
+	
+	/* communication starts 
 	while(1){
    	
    	printf("Waiting for datagrams at %s, port %d\n",inet_ntop(AF_INET6, &local_addr6.sin6_addr,buff, sizeof(buff)),ntohs(local_addr6.sin6_port));
-   	
-		if ((n = recvfrom(listenfd, string, MSGMAXLEN, 0,(struct sockaddr *) &cli_addr6, &len)) < 0) {
+		if ((n = recvfrom(listenfd, string, MSGLENGHT, 0,(struct sockaddr *) &cli_addr6, &len)) < 0) {
 			perror("recvfrom");
 			return -1;
 		}
@@ -77,7 +119,17 @@ int main(int argc, char **argv)
       string--;
       printf("Received datagram with type %d and request %lu from",type,request);
       printf("%s, port %d\n", inet_ntop(AF_INET6, &cli_addr6.sin6_addr,buff, sizeof(buff)),ntohs(cli_addr6.sin6_port));
-	  }
+      
+      */
+     /*
+	   int val;
+		val = fcntl(listenfd, F_GETFL, 0);
+		if (fcntl(listenfd, F_SETFL, val | O_NONBLOCK) < 0) {
+		    perror("fcntl(listenfd)");
+		    return;
+		}
+		*/ 
+	  //}
 
 	free(string);
 	return(0);
