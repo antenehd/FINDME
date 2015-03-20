@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include<stdlib.h>
+#include<signal.h>
 #include<sys/types.h>
 #include<sys/socket.h>
 #include<unistd.h>
@@ -16,6 +17,98 @@ uint64 gi64StartID;
 uint64 gi64EndID = 1000000;
 
 extern HashTable_t  *gpHashTable;
+extern pthread_mutex_t stRecMutex;
+
+void PrintAllRecord()
+{
+
+  int32 i32Count = 0;
+  HashRecord_t *  pstNextRec = NULL;
+
+  printf("In %s\n",__FUNCTION__);
+  if(0 == pthread_mutex_lock(&stRecMutex))
+  {
+    if(NULL != gpHashTable)
+   {
+    if(gpHashTable->pstTable != NULL)
+    {
+        for(i32Count = 0; i32Count < gpHashTable->i32size ; i32Count++) 
+        {
+              if(gpHashTable->pstTable[i32Count] != NULL)
+              {
+                  if(gpHashTable->pstTable[i32Count]->pstValue != NULL)
+                  {
+                      printf("ID : %ld\n",gpHashTable->pstTable[i32Count]->pstValue->ui64RecNum); 
+                      printf("Name : %s\n",gpHashTable->pstTable[i32Count]->pstValue->achName); 
+                      printf("Email : %s\n",gpHashTable->pstTable[i32Count]->pstValue->achEmail); 
+                      printf("Address : %s\n",gpHashTable->pstTable[i32Count]->pstValue->achAddr); 
+                      printf("Location : %s\n\n",gpHashTable->pstTable[i32Count]->pstValue->achLastKnownLoc); 
+                  }
+
+                  pstNextRec = gpHashTable->pstTable[i32Count]->pstnext;
+                  while( pstNextRec != NULL)
+                  {
+                         
+                      if(pstNextRec->pstValue != NULL)
+                      {
+                          printf("ID : %ld\n",pstNextRec->pstValue->ui64RecNum); 
+                          printf("Name : %s\n",pstNextRec->pstValue->achName); 
+                          printf("Email : %s\n",pstNextRec->pstValue->achEmail); 
+                          printf("Address : %s\n",pstNextRec->pstValue->achAddr); 
+                          printf("Location : %s\n\n",pstNextRec->pstValue->achLastKnownLoc); 
+                      }
+                  }
+              }
+        }       
+    } 
+  }
+ }
+  pthread_mutex_unlock(&stRecMutex);
+}
+
+
+void sighandler_SIGINT()
+{
+
+  int32 i32Count = 0;
+  HashRecord_t *  pstNextRec = NULL;
+
+  printf("In %s\n",__FUNCTION__);
+  if(0 == pthread_mutex_lock(&stRecMutex))
+  {
+    if(NULL != gpHashTable)
+   {
+    if(gpHashTable->pstTable != NULL)
+    {
+        for(i32Count = 0; i32Count < gpHashTable->i32size ; i32Count++) 
+        {
+              if(gpHashTable->pstTable[i32Count] != NULL)
+              {
+                  if(gpHashTable->pstTable[i32Count]->pstValue != NULL)
+                  {free(gpHashTable->pstTable[i32Count]->pstValue); }
+
+                  while( gpHashTable->pstTable[i32Count]->pstnext != NULL)
+                  {
+                      pstNextRec = gpHashTable->pstTable[i32Count]->pstnext->pstnext;
+                         
+                      if(gpHashTable->pstTable[i32Count]->pstnext->pstValue != NULL)
+                      {
+                         free(gpHashTable->pstTable[i32Count]->pstnext->pstValue); 
+                         free(gpHashTable->pstTable[i32Count]->pstnext); 
+                         gpHashTable->pstTable[i32Count]->pstnext = pstNextRec; 
+                      }
+                  }
+                  free(gpHashTable->pstTable[i32Count]); 
+              }
+        }       
+        free(gpHashTable->pstTable); 
+        free(gpHashTable); 
+        gpHashTable = NULL; 
+    } 
+  }
+ }
+  pthread_mutex_unlock(&stRecMutex);
+}
 
 
 HashTable_t * CreateHash(int32 i32size)
@@ -54,31 +147,35 @@ void InsertRecord(stRecord * pstNewRecord)
   ui32Key = (pstNewRecord->ui64RecNum % gpHashTable->i32size);
 
  /*TODO:acquire mutex here*/
-  if(NULL != pstNewRecord)
+  if(0 == pthread_mutex_lock(&stRecMutex))
   {
-     if(gpHashTable->pstTable[ui32Key]->pstValue == NULL) 
-     {
-       gpHashTable->pstTable[ui32Key]->pstValue = pstNewRecord;
-     }
-     else
-     {
-       pstLastHashRec = gpHashTable->pstTable[ui32Key];
+      if(NULL != pstNewRecord)
+      {
+          if(gpHashTable->pstTable[ui32Key]->pstValue == NULL) 
+          {
+             gpHashTable->pstTable[ui32Key]->pstValue = pstNewRecord;
+          }
+          else
+          {
+             pstLastHashRec = gpHashTable->pstTable[ui32Key];
 
-       while(pstLastHashRec->pstnext != NULL)
-       {
-          pstLastHashRec = pstLastHashRec->pstnext;
-       }
+            while(pstLastHashRec->pstnext != NULL)
+            {
+                 pstLastHashRec = pstLastHashRec->pstnext;
+            }
 
-       pstNewHashRec = malloc(sizeof(HashRecord_t));
-       if(NULL != pstNewHashRec)
-       {
-           pstNewHashRec->i32key = ui32Key;
-           pstNewHashRec->pstValue = pstNewRecord;
-           pstNewHashRec->pstnext=  NULL;
-           pstLastHashRec->pstnext = pstNewHashRec;
-       }
-     }
-  }
+                pstNewHashRec = malloc(sizeof(HashRecord_t));
+            if(NULL != pstNewHashRec)
+            {
+               pstNewHashRec->i32key = ui32Key;
+               pstNewHashRec->pstValue = pstNewRecord;
+               pstNewHashRec->pstnext=  NULL;
+               pstLastHashRec->pstnext = pstNewHashRec;
+           }
+       }     
+    }
+    pthread_mutex_unlock(&stRecMutex);
+ }
 
 }
 
@@ -92,6 +189,7 @@ stRecord *  CreateRecord(uint64 ui64ID)
        /*Create a node and add to the link list*/
        pstNewRecord->ui64RecNum = ui64ID;
        InsertRecord(pstNewRecord);
+       pstNewRecord->ui32ContentFull = 0;
    }
    return pstNewRecord;
 }
@@ -140,7 +238,6 @@ void AssignIDToCli(stRcvdMsg * pstRcvdMsg)
   }
 
  
- printf("In fucntion %s\n",__FUNCTION__);
 
 }
 
@@ -150,29 +247,33 @@ stRecord * SearchRecord(uint64 ui64Id)
 
   int32 i32key = 0;
   HashRecord_t * pstPlaceHolder = NULL;
-
+  stRecord * pstRetval = NULL;
   /*Start from the head pointer and search linearly*/
- printf("In fucntion %s\n",__FUNCTION__);
  /*TODO: acquire mutex here*/
- i32key = ui64Id % gpHashTable->i32size;
- pstPlaceHolder = gpHashTable->pstTable[i32key];
- if((pstPlaceHolder->pstValue != NULL))
- {
-    if((pstPlaceHolder->pstnext != NULL)) 
-   {
-       while(( pstPlaceHolder->pstnext != NULL  ) && 
-            (pstPlaceHolder->pstValue->ui64RecNum != ui64Id))          
-       {
-           pstPlaceHolder = pstPlaceHolder->pstnext;
-       }       
-   }
-   if((NULL != pstPlaceHolder->pstValue) && 
-     (pstPlaceHolder->pstValue->ui64RecNum == ui64Id))
-     {  
-        return pstPlaceHolder->pstValue;
-     }
- }  
-   return NULL; 
+
+  if(0 == pthread_mutex_lock(&stRecMutex))
+  {
+     i32key = ui64Id % gpHashTable->i32size;
+     pstPlaceHolder = gpHashTable->pstTable[i32key];
+     if((pstPlaceHolder->pstValue != NULL))
+    {
+        if((pstPlaceHolder->pstnext != NULL)) 
+        {
+             while(( pstPlaceHolder->pstnext != NULL  ) && 
+              (pstPlaceHolder->pstValue->ui64RecNum != ui64Id))          
+             {
+                 pstPlaceHolder = pstPlaceHolder->pstnext;
+             }       
+        }
+        if((NULL != pstPlaceHolder->pstValue) && 
+        (pstPlaceHolder->pstValue->ui64RecNum == ui64Id))
+        {  
+            pstRetval = pstPlaceHolder->pstValue;
+        }
+    }
+    pthread_mutex_unlock(&stRecMutex);
+  }  
+    return pstRetval; 
 }
 
 void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMask)
@@ -182,7 +283,6 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
   int8 achBuff[20] = {0};
 
   pachRepBuff = (int8 *) malloc(MAX_MSG_LEN); 
-  printf("In fucntion %s\n",__FUNCTION__);
  
   if((NULL != pstRcvdMsg) && (NULL != pachRepBuff))
   {
@@ -267,6 +367,7 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
       printf("Buffer: %s\n",pachRepBuff);
      /*TODO: Add sending part*/ 
      freeMsg(pstRcvdMsg);
+     free(pachRepBuff);
   }
  
 }
@@ -346,7 +447,8 @@ void HandleCliUpdate(stRcvdMsg * pstRcvdMsg , int8 * pi8MsgPtr ,uint64 ui64ID)
         {
            if(pstRedAdd->ui32ContentFull == 0)
             {
-              ui32BitMask |= SERVER|NEW;
+              ui32BitMask |= SERVER|NEW|CLIENTID;
+              pstRedAdd->ui32ContentFull = 1;
             }
             else
             {
@@ -457,10 +559,9 @@ uint32 FillRecord(stRecord * pstActRec,int8 * pi8MsgPtr)
    /*update only if it is latest*/
    if((pstActRec->ui64LastUpdate <  pstRedAdd->ui64LastUpdate) || (pstActRec->ui32ContentFull == 0))
    {
-      pstActRec->ui32ContentFull = 1; 
       if((NAME & ui32BitMask)!= 0)
       {
-         strncpy(pstActRec->achName, pstRedAdd->achName ,strlen(pstRedAdd->achName));
+         strcpy(pstActRec->achName, pstRedAdd->achName);
       }
       if((EMAIL & ui32BitMask)!= 0)
       {
@@ -500,22 +601,27 @@ void  HandleServNew(stRcvdMsg * pstRcvdMsg ,int8 * pi8MsgPtr,uint64 ui64ID)
  if(NULL != pi8MsgPtr)
  { 
     pi8Token = strtok_r(pi8MsgPtr , DELIMITER , &pi8SavePtr);
-    ui64RecId = strtol(pi8Token,NULL,0);
-    if(NULL == (pstRedAdd = SearchRecord(ui64RecId)))
+    if(0 == strcmp("CLIENTID",pi8Token))
     {
-       pstRedAdd = CreateRecord(ui64RecId);
-       if(NULL != pstRedAdd)
+        pi8Token = strtok_r(NULL , DELIMITER , &pi8SavePtr);
+        ui64RecId = strtol(pi8Token,NULL,0);
+        if(NULL == (pstRedAdd = SearchRecord(ui64RecId)))
        {
-            pstRedAdd->ui64RecNum = ui64RecId;
-            FillRecord(pstRedAdd,pi8MsgPtr);
-       }	           
+           pstRedAdd = CreateRecord(ui64RecId);
+           if(NULL != pstRedAdd)
+           {
+               pstRedAdd->ui64RecNum = ui64RecId;
+               FillRecord(pstRedAdd,pi8SavePtr);
+               pstRedAdd->ui32ContentFull = 0;
+           }	           
+      }
+      else
+      {
+           /*Client already exists,just update*/      
+           FillRecord(pstRedAdd,pi8SavePtr); 
+      }
     }
-    else
-    {
-       /*Client already exists,just update*/      
-        FillRecord(pstRedAdd,pi8MsgPtr); 
-    }
-  freeMsg(pstRcvdMsg);
+    freeMsg(pstRcvdMsg);
  }
 }
 

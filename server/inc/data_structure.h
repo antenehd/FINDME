@@ -1,6 +1,9 @@
 #ifndef _datastructure
 #define _datastructure
 
+#define LOG_FILE  "./../Log_File.txt"
+#define FINDME_LOG(...) {printf(__VA_ARGS__);} 
+
 #define MAX_LINE_LENGTH 255
 #define MAX_TYPE_LENGTH 10
 #define MAX_MSG_LEN 1024

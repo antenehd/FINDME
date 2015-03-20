@@ -1,6 +1,8 @@
 #ifndef _PROTO
 #define _PROTO
 
+void PrintAllRecord();
+void sighandler_SIGINT();
 void * ProcessThreadStart();
 void * SyncThreadStart();
 void freeMsg(stRcvdMsg * pstRcvdMsg);
