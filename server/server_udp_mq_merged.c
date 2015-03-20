@@ -1,3 +1,7 @@
+/* TO BE COMPILED WITH -LTR */
+/* gcc -o server server_udp_mq_merged.c -lrt */
+/* EXECUTED IN NWPROG1 SERVER TO MATCH IP */
+
 #include <sys/socket.h>  // defines socket, connect, ...
 #include <netinet/in.h>  // defines sockaddr_in
 #include <string.h>      // defines memset
@@ -31,7 +35,11 @@ typedef struct {
 	struct sockaddr_in6 strcvd_addr; /* in data structure it's not ipv6 */
 	char achBuffer[MAX_MSG_LEN];
 } msg_t;
-  
+ 
+int check_datagram(datagram){
+	/* do I need to check for correct end (jump of line) of datagram? in case datagram is bigger than MAX_MSG_LEN what we do? */
+	return 0;
+}
 int send_to_mq( mqd_t queue, struct sockaddr_in6 cli_addr6, unsigned prio, char * packet){
   
   size_t mlen;
@@ -46,11 +54,11 @@ int send_to_mq( mqd_t queue, struct sockaddr_in6 cli_addr6, unsigned prio, char 
 	  return -1;
   }
   mess = (msg_t *) malloc(mlen);
-  printf(" SEND TO MQ - Size of cli_addr is %d, strlen of packet is %d, mlen %d\n",sizeof(cli_addr6),strlen(packet),mlen);
+  //printf("SEND TO MQ - Size of cli_addr is %d, strlen of packet is %d, mlen %d\n",sizeof(cli_addr6),strlen(packet),mlen);
   
   mess->strcvd_addr = cli_addr6;
   memcpy(mess->achBuffer, packet, strlen(packet));
-  printf("INFO: ArchBiffer equals <%s> and addr equals <%s> and port <%d>\n",mess->achBuffer,inet_ntop(AF_INET6, &mess->strcvd_addr,buff, sizeof(buff)),ntohs(mess->strcvd_addr.sin6_port));
+  printf("MQ: INFO: ArchBiffer equals <%s> and addr equals <%s> and port <%d>\n",mess->achBuffer,inet_ntop(AF_INET6, &mess->strcvd_addr,buff, sizeof(buff)),ntohs(mess->strcvd_addr.sin6_port));
   
   if(mq_send(queue, (char *) mess, mlen, prio) < 0)
   {
@@ -71,7 +79,7 @@ int send_to_mq( mqd_t queue, struct sockaddr_in6 cli_addr6, unsigned prio, char 
 		return -1;
    }
   }
-  else printf("INFO: Message <%s> successfully introduced to mq with mlen <%d>\n",packet,mlen);
+  else printf("MQ: INFO: Message <%s> successfully introduced to mq with mlen <%d>\n",packet,mlen);
   /* !!!  HACK HACK HACK HACK  !!!!*/
   mq_send(queue, (char *) mess, mlen, prio);
   free(mess);
@@ -83,11 +91,11 @@ int main(int argc, char **argv)
 {
     int n,i;
 	/* ipv6 server variables */
-	int listenfd,server_port6;
+	int listenfd, server_port6;
 	struct sockaddr_in6 local_addr6,cli_addr6;
 	socklen_t len;
 	char buff[80];
-	char * datagram;
+	char *datagram, *server_ip6;
 	
 	/* mq related stuff */
 	mqd_t queue;
@@ -96,6 +104,8 @@ int main(int argc, char **argv)
 
    /* memory and variables initialization  */ 
 	memset(&buff, 0, sizeof(buff));
+	//server_ip6 = "2001:708:40:2001:0:38:3610:1"; /* nwprog1.netlab.hut.fi */
+	server_ip6 = "::ffff:195.148.124.76"; /*  nwprog1.netlab.hut.fi */
 	server_port6 = 22222;
 	len = sizeof(cli_addr6);
 	datagram = malloc(MAX_MSG_LEN);
@@ -104,7 +114,7 @@ int main(int argc, char **argv)
 	memset(&local_addr6, 0, sizeof(local_addr6));
 	local_addr6.sin6_family = AF_INET6;
 	local_addr6.sin6_port = htons(server_port6);
-	if (inet_pton(AF_INET6, "2001:708:40:2001:0:38:3610:1", &local_addr6.sin6_addr) <= 0) {
+	if (inet_pton(AF_INET6, server_ip6, &local_addr6.sin6_addr) <= 0) {
  		fprintf(stderr, "inet_pton error for IPV6");
 		return -1;
 	}
@@ -131,17 +141,24 @@ int main(int argc, char **argv)
 	/* message queue ready */
 	
 	while(1){
-		datagram = NULL;
-		printf("Waiting for datagrams at %s, port %d\n",inet_ntop(AF_INET6, &local_addr6.sin6_addr,buff, sizeof(buff)),ntohs(local_addr6.sin6_port));
+		printf("UDPS: INFO: Waiting for datagrams at %s, port %d\n",inet_ntop(AF_INET6, &local_addr6.sin6_addr,buff, sizeof(buff)),ntohs(local_addr6.sin6_port));
 		if ((n = recvfrom(listenfd, datagram, MAX_MSG_LEN, 0,(struct sockaddr *) &cli_addr6, &len)) < 0) {
+			printf("ERROR: recvfrom : number of bytes received %d\n",n);
 			perror("recvfrom");
 			return -1;
 		}
-		if(send_to_mq(queue,cli_addr6,prio,datagram) < 0 ){
-			printf("ERROR: send_to_mq : packet can not be put in the mq\n");
+		printf("UDPS: INFO: Received datagrams (%d bytes) from %s, port %d\n",n,inet_ntop(AF_INET6, &local_addr6.sin6_addr,buff, sizeof(buff)),ntohs(local_addr6.sin6_port));
+		if(check_datagram(datagram) < 0){
+			printf("UDPS: ERROR: check_datagram : packet discarded\n");
+		}
+		else{
+			if(send_to_mq(queue,cli_addr6,prio,datagram) < 0 ){
+				printf("ERROR: send_to_mq : packet can not be put in the mq\n");
+			}
 		}
 	  }
 
 	free(datagram);
+	close (listenfd);
 	return(0);
 }
