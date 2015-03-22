@@ -1,14 +1,25 @@
 #ifndef _datastructure
 #define _datastructure
 
+#define CLI_PORT_NUM  45000
+#define SERV_PORT_NUM 46000
+
+#define MSERVERID "00000001"
+#define CONFIG_FILE "./../Findme.conf"
 #define LOG_FILE  "./../Log_File.txt"
 #define FINDME_LOG(...) {printf(__VA_ARGS__);} 
+/* message queue details */
+#define MQ_NAME       "/testmsg"
+#define MAX_MSG       100
+#define MQ_MODE       0777
 
 #define MAX_LINE_LENGTH 255
 #define MAX_TYPE_LENGTH 10
 #define MAX_MSG_LEN 1024
 #define DELIMITER "$"
 #define REPLY "REPLY"
+#define PRIORITY 1
+#define IPV4_ADDR_LEN 15
 
 /*Bit masks for encode and decoding*/
 /*Fourth byte for actual value types*/
@@ -70,5 +81,15 @@ typedef struct HashTable_s
  int32 i32size;
  HashRecord_t **pstTable;
 }HashTable_t;
+
+typedef struct _stConfigFileItems
+{
+   int8 achServerIP[MAX_LINE_LENGTH];
+   uint64 ui64ServID;
+   uint32 ui32Port;
+}stConfigFileItems;
+
+
+
 
 #endif

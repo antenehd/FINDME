@@ -460,41 +460,25 @@ void HandleCliUpdate(stRcvdMsg * pstRcvdMsg , int8 * pi8MsgPtr ,uint64 ui64ID)
 }
 
 
-int32  HandleClientReceivedMsg(stRcvdMsg * pstRcvdMsg)
+int32  HandleClientReceivedMsg(stRcvdMsg * pstRcvdMsg , int8*  pachTestArray)
 {
-
-int8*  pachTestArray = pstRcvdMsg->achBuffer; 
 int8 * pi8Token = NULL;
 int8 * pi8SavePtr = NULL;
 uint64 ui64ID = 0;
 
 if(NULL != pstRcvdMsg)
 {
-        /*Check for the ID*/
-        pi8Token = strtok_r(pachTestArray ,DELIMITER , &pi8SavePtr);
-        ui64ID = strtol(pi8Token,NULL,0);
 
-        if(0 == ui64ID)
-	{
-           AssignIDToCli(pstRcvdMsg);
-	}
-        else if(0 == isclient(ui64ID))
-        {
-            /*validate client and hendle the client*/
-            pi8Token = strtok_r (NULL, DELIMITER , &pi8SavePtr);
-            if(0 == (strcmp(pi8Token , "QUERY")))
-            {
-               HandleCliQuery(pstRcvdMsg , pi8SavePtr,ui64ID);
-            }
-            else if(0 == (strcmp(pi8Token , "UPDATE")))
-            {
-               HandleCliUpdate(pstRcvdMsg , pi8SavePtr,ui64ID);
-            } 
-        }
-        else
-        {
-           printf("Unknown client\n");
-        }
+    /*validate client and hendle the client*/
+    pi8Token = strtok_r (pachTestArray, DELIMITER , &pi8SavePtr);
+    if(0 == (strcmp(pi8Token , "QUERY")))
+    {
+       HandleCliQuery(pstRcvdMsg , pi8SavePtr,ui64ID);
+    }
+    else if(0 == (strcmp(pi8Token , "UPDATE")))
+    {
+       HandleCliUpdate(pstRcvdMsg , pi8SavePtr,ui64ID);
+    } 
 
 }	
 return 0;
@@ -652,37 +636,25 @@ if(NULL !=  pstRcvdMsg && (NULL != pi8MsgPtr))
  }
 }
 
-void HandleServerReceivedMsg(stRcvdMsg * pstRcvdMsg)
+void HandleServerReceivedMsg(stRcvdMsg * pstRcvdMsg,int8*  pachTestArray)
 {
 
-int8*  pachTestArray = pstRcvdMsg->achBuffer;
 int8 * pi8Token = NULL;
 int8 * pi8SavePtr = NULL;
 uint64 ui64ID = 0;
 
 if(NULL !=  pstRcvdMsg)
 {
-  /*Check for the ID*/
-        pi8Token = strtok_r(pachTestArray ,DELIMITER , &pi8SavePtr);
-        ui64ID = strtol(pi8Token,NULL,0);
+   /*validate client and hendle the client*/
+   pi8Token = strtok_r (pachTestArray, DELIMITER , &pi8SavePtr);
+   if(0 == (strcmp(pi8Token , "NEW")))
+   {
+      HandleServNew(pstRcvdMsg , pi8SavePtr,ui64ID);
+   }
+   else if(0 == (strcmp(pi8Token , "UPDATE")))
+   {
+      HandleServUpdate(pstRcvdMsg , pi8SavePtr);
+   }
 
-        if(0 == isServer(ui64ID))
-	{
-            /*validate client and hendle the client*/
-            pi8Token = strtok_r (NULL, DELIMITER , &pi8SavePtr);
-            if(0 == (strcmp(pi8Token , "NEW")))
-            {
-               HandleServNew(pstRcvdMsg , pi8SavePtr,ui64ID);
-            }
-            else if(0 == (strcmp(pi8Token , "UPDATE")))
-            {
-               HandleServUpdate(pstRcvdMsg , pi8SavePtr);
-            }
-        }
-        else
-        {
-           printf("Unknown Server\n");
-        }
- 	
 }
 }

@@ -2,8 +2,8 @@ LIB=inc/
 SRC=src
 OBJ_DIR=OBJECTS
 TARGET=NameServer
-CFLAGS:= -pedantic -Wno-variadic-macros -Wall
-LDFLAG:= -L . -lpthread
+CFLAGS:= -pedantic -Wno-variadic-macros -Wall --coverage
+LDFLAG:= -L . -lpthread -lrt --coverage
 
 SOURCE=$(shell find $(SRC) -name '*.c')
 OBJS:=$(patsubst $(SRC)/%.c,$(OBJ_DIR)/%.o,$(SOURCE))

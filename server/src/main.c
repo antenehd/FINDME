@@ -8,22 +8,138 @@
 #include<arpa/inet.h>
 #include<string.h>
 #include<pthread.h>
+#include <netdb.h>      
+#include <fcntl.h>
+#include <pthread.h>
+#include <netdb.h>
+#include <mqueue.h>
+#include <errno.h>
 
 #include "data_structure.h"
 #include "proto_types.h"
 
 pthread_mutex_t stRecMutex = {{0}};
 HashTable_t  *gpHashTable = NULL;
+int32 gUDPCliSockFD = 0;
+int32 gUDPServSockFD = 0;
+mqd_t gMsgQID = 0;
+/*TODO : 
+ 1)sockname
+ 2)select
+ 3) writeback to conf file
+*/
+
+extern stConfigFileItems gstConfigs;
+int32 CreateUDPSock(uint32 PortNum)
+{
+   /* ipv6 server variables */
+   int listenfd = 0;
+   struct sockaddr_in6 local_addr6 = {0};
+/*
+   char server_ip6[MAX_LINE_LENGTH] = {0};
+   struct sockaddr_in alt_conn = {0};
+   socklen_t size = sizeof(alt_conn);
+   char my_addr[100] = {0};
+  
+   if (getsockname(listenfd, (struct sockaddr *) &alt_conn, &size) < 0){
+    perror("getsockname");
+    return -1;
+    }
+    if (!inet_ntop(AF_INET, &alt_conn.sin_addr, my_addr, sizeof(alt_conn))) 
+    {
+         perror("inet_ntop");
+         return -1;
+    }
+
+    strcat(server_ip6 , "::ffff:");
+    strcat(server_ip6 , my_addr);
+ */
+   if ((listenfd = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
+           perror("socket error");
+           return -1;
+   }
+   /* initialization of IPV6 server */
+   memset(&local_addr6, 0, sizeof(local_addr6));
+   local_addr6.sin6_family = AF_INET6;
+   local_addr6.sin6_port = htons(PortNum);
+   local_addr6.sin6_addr = in6addr_any;
+/*
+   if (inet_pton(AF_INET6, server_ip6, &local_addr6.sin6_addr) <= 0) {
+           fprintf(stderr, "inet_pton error for IPV6");
+           return -1;
+   }
+*/
+      if (bind(listenfd, (struct sockaddr *) &local_addr6,sizeof(local_addr6)) < 0) {
+           perror("bind");
+           return -1;
+   }
+
+return listenfd;
+
+}
+
+int32 CreateMsgQueue()
+{
+
+  /* mq related stuff */
+  mqd_t queue = 0;
+  struct mq_attr mqstat;
+
+  /* initialization of message queue */
+  memset(&mqstat, 0, sizeof(mqstat));
+  mqstat.mq_maxmsg = MAX_MSG;
+  mqstat.mq_msgsize = 2 * MAX_MSG_LEN; /* Controlled in send_to_mq() */
+  mqstat.mq_flags = 0;
+  
+   queue = mq_open(MQ_NAME,O_CREAT|O_WRONLY, MQ_MODE, &mqstat);
+
+ return queue;
+}
+
+
 int main()
 {
 
-
-#if 0
-/*int8 achTestArray[] = {"1000001$QUERY$NAME$raghu$10.19.19\n"};*/ 
-
-/*TODO message queues and sockets*/
+#if 1
+ stRcvdMsg * pstNewMsg = NULL;
+int8*  pachTestArray = NULL; 
+int8 * pi8Token = NULL;
+int8 * pi8SavePtr = NULL;
+uint64 ui64ID = 0;
+uint64 ui64ServID = 0;
+uint32 priority = 1;
 pthread_t prcs_thread = {0};
-pthread_t sync_thread = {0};
+
+/*Create socket*/
+
+if(0 > (gUDPCliSockFD = CreateUDPSock(CLI_PORT_NUM)))
+{
+    /*socket creation failed*/
+    return -1;
+}
+if(0 > (gUDPServSockFD = CreateUDPSock(SERV_PORT_NUM)))
+{
+    /*socket creation failed*/
+    return -1;
+}
+/*Create socket*/
+
+if(0 > (gMsgQID = CreateMsgQueue()))
+{
+    /*message creation failed*/
+    return -1;
+}
+
+if(0 > (readConfigFile()))
+{
+     return -1;
+}
+
+ui64ServID = strtol(MSERVERID,NULL,0);
+if(ui64ServID == gstConfigs.ui64ServID)
+{
+     RequestServID();
+}
 
 /* Create the threads*/
 if(pthread_create(&prcs_thread , NULL , &ProcessThreadStart, NULL) != 0){
@@ -31,24 +147,51 @@ if(pthread_create(&prcs_thread , NULL , &ProcessThreadStart, NULL) != 0){
         return -1;
 	}
 
-if(pthread_create(&sync_thread, NULL , &SyncThreadStart, NULL) != 0){
-	perror("Pthread_Create");
-        return -1;
-	}
-/*
-HandleClientReceivedMsg(NULL);
-HandleServerReceivedMsg(NULL);
-*/
-pthread_join(sync_thread , NULL);
+
+while(1)
+{
+   if(-1  ==  mq_receive(gMsgQID ,(char *) pstNewMsg, sizeof(stRcvdMsg), &priority))
+   {
+       /*TODO : LOG*/
+        continue;
+   }
+   
+   pachTestArray = pstNewMsg->achBuffer; 
+     /*Check for the ID*/
+   pi8Token = strtok_r(pachTestArray ,DELIMITER , &pi8SavePtr);
+   ui64ID = strtol(pi8Token,NULL,0);
+
+   if(0 == ui64ID)
+   {
+       AssignIDToCli(pstNewMsg);
+   }
+   else if(0 == isclient(ui64ID))
+   {
+       HandleClientReceivedMsg(pstNewMsg , pi8SavePtr);
+   } 
+   else if(0 == isServer(ui64ID))
+   {
+       HandleServerReceivedMsg(pstNewMsg , pi8SavePtr);
+   }
+   else
+   {
+      printf("Error: unknown Message\n");
+   } 
+}
 
 #endif
+return 0;
+}
+
+
+
 
 /*
 000000000$QUERY
 1000001$QUERY$NAME$raghu$10.19.19\n
 
 */
-
+#if 0
  int32 i32size = 1000;
  stRcvdMsg * testmsg = NULL;
  stRcvdMsg * testmsg1 = NULL;
@@ -120,5 +263,5 @@ pthread_join(sync_thread , NULL);
   sighandler_SIGINT(); 
  /*kill(getpid(), SIGINT);*/
  return 0;
+#endif
 
-}
