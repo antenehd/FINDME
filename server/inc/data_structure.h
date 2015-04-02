@@ -68,7 +68,7 @@ int8 achLastKnownLoc[MAX_LINE_LENGTH];
 
 typedef struct _stRcvdMsg
 {
-struct sockaddr *strcvd_addr;
+struct sockaddr_in6 *strcvd_addr;
 int8 *achBuffer;
 }stRcvdMsg;
 

@@ -80,6 +80,7 @@ int main()
 {
 
 #if 1
+ int32 i32size = 1000;
  stRcvdMsg * pstNewMsg = NULL;
 int8*  pachTestArray = NULL; 
 int8 * pi8Token = NULL;
@@ -96,6 +97,12 @@ pthread_t prcs_thread = {0};
    return -1;
  }
  FINDME_LOG("INFO :Server Started\n");
+
+if(NULL == (gpHashTable = CreateHash(i32size)))
+{
+    FINDME_LOG("ERROR :Hash creation failed\n");
+    return -1;
+}
 /*Create socket*/
 if(0 > (gUDPCliSockFD = CreateUDPSock(CLI_PORT_NUM)))
 {
@@ -196,7 +203,6 @@ return 0;
 
 */
 #if 0
- int32 i32size = 1000;
  stRcvdMsg * testmsg = NULL;
  stRcvdMsg * testmsg1 = NULL;
  stRcvdMsg * testmsg2 = NULL;

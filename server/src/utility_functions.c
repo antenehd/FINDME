@@ -17,6 +17,7 @@ uint64 gi64ServID = 10000000;
 uint64 gi64StartID;
 uint64 gi64EndID = 1000000;
 
+extern int32 gUDPCliSockFD;
 extern HashTable_t  *gpHashTable;
 extern pthread_mutex_t stRecMutex;
 FILE * fpLog;
@@ -73,6 +74,8 @@ void sighandler_SIGINT()
 
   int32 i32Count = 0;
   HashRecord_t *  pstNextRec = NULL;
+
+  PrintAllRecord();
   /*Before exiting the process free all  allocated the memory*/
   if(0 == pthread_mutex_lock(&stRecMutex))
   {
@@ -275,11 +278,94 @@ stRecord * SearchRecord(uint64 ui64Id)
     return pstRetval; 
 }
 
+
+stRecord * SearchRecord_New(uint32 ui32QueryMask , int8 *pi8Query)
+{
+  uint64 ui64RecId = 0;
+  int32 i32key = 0;
+  int32 i32Found = 0;
+  HashRecord_t * pstPlaceHolder = NULL;
+  stRecord * pstRetval = NULL;
+
+ if(0 == pthread_mutex_lock(&stRecMutex))
+  {
+     i32key = 0;
+     /*Client Id as the key*/
+     while(i32key <= gpHashTable->i32size)
+     {
+         pstPlaceHolder = gpHashTable->pstTable[i32key];
+     
+        while((pstPlaceHolder->pstValue != NULL))
+        {
+
+              switch(ui32QueryMask)
+              {
+                case NAME :
+
+                         if(0 == strcmp(pi8Query , pstPlaceHolder->pstValue->achName))
+                         {
+                              pstRetval = pstPlaceHolder->pstValue;
+                              i32Found = 1;
+                         }
+                              break;
+                case EMAIL : 
+                         if(0 == strcmp(pi8Query , pstPlaceHolder->pstValue->achEmail))
+                         {
+                              pstRetval = pstPlaceHolder->pstValue;
+                              i32Found = 1;
+                         }
+                             break;
+                case ADDRESS : 
+                         if(0 == strcmp(pi8Query , pstPlaceHolder->pstValue->achAddr))
+                         {
+                              pstRetval = pstPlaceHolder->pstValue;
+                              i32Found = 1;
+                         }
+                             break;
+                case LOCATION : 
+                         if(0 == strcmp(pi8Query , pstPlaceHolder->pstValue->achLastKnownLoc))
+                         {
+                              pstRetval = pstPlaceHolder->pstValue;
+                              i32Found = 1;
+                         }
+                             break;
+                case CLIENTID :
+                                   ui64RecId = strtol(pi8Query,NULL,0);
+                         if( ui64RecId == pstPlaceHolder->pstValue->ui64RecNum)
+                         {
+                              pstRetval = pstPlaceHolder->pstValue;
+                              i32Found = 1;
+                         }
+                         break;
+                default:
+                        break;
+               }
+ 
+           if((pstPlaceHolder->pstnext != NULL)) 
+           {
+             /*If there are more than one record in the bucket*/
+                 pstPlaceHolder = pstPlaceHolder->pstnext;
+           }
+        }
+        if(i32Found == 1)
+        break;
+        
+        i32key++;
+
+    }
+    pthread_mutex_unlock(&stRecMutex);
+  }  
+    return pstRetval; 
+}
+
+
 void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMask)
 {
  
   int8 * pachRepBuff = NULL;
   int8 achBuff[20] = {0};
+  int32 bytes = 0;
+  int32 size = sizeof(struct sockaddr_in6);
 
   pachRepBuff = (int8 *) malloc(MAX_MSG_LEN); 
   /*For all the bits set in ui32BitMask , encode the 
@@ -367,7 +453,13 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
       }
       pachRepBuff[strlen(pachRepBuff)-1] = '\0';
       printf("Buffer: %s\n",pachRepBuff);
-     /*TODO: Add sending part*/ 
+
+     if((bytes = sendto(gUDPCliSockFD,pachRepBuff,strlen(pachRepBuff),
+                0,(struct sockaddr *)pstRcvdMsg->strcvd_addr,size)) < 0)
+     {
+           FINDME_LOG("ERROR : Message could not be sent to client\n");
+           perror("Sendto");
+     }
      freeMsg(pstRcvdMsg);
      free(pachRepBuff);
   }
@@ -383,30 +475,34 @@ void HandleCliQuery(stRcvdMsg * pstRcvdMsg , int8 * pi8MsgPtr,uint64 ui64ID)
  int8 * pi8Value = NULL;
  uint64 ui64RecId = 0;
  uint32 ui32BitMask = 0;
+ uint32 ui32QueryMask = 0;
  stRecord * pstRedAdd = NULL;
 
  if(NULL != pi8MsgPtr)
  { 
-    pi8Token = strtok_r(pi8MsgPtr , DELIMITER , &pi8SavePtr);
-    ui64RecId = strtol(pi8Token,NULL,0);
     if(NULL != (pstRedAdd = SearchRecord(ui64RecId)))
     {
-         pi8Token = strtok_r(NULL , DELIMITER , &pi8SavePtr);
+         pi8Token = strtok_r(pi8MsgPtr , DELIMITER , &pi8SavePtr);
          pi8Value = strtok_r(NULL , DELIMITER , &pi8SavePtr);
+
          if(0 == strcmp(pi8Token,"NAME"))
          {
+              ui32QueryMask |= NAME;
               ui32BitMask |= EMAIL|ADDRESS|LOCATION|CLIENT;
          }
          else if(0 == strcmp(pi8Token,"EMAIL"))
          {
+              ui32QueryMask |= EMAIL;
               ui32BitMask |= NAME|ADDRESS|LOCATION|CLIENT;
          }
          else if(0 == strcmp(pi8Token,"LOCATION"))
          {
+              ui32QueryMask |= LOCATION;
               ui32BitMask |= NAME|EMAIL|ADDRESS|CLIENT;
          }
          else if(0 == strcmp(pi8Token,"ADDRESS"))
          {
+              ui32QueryMask |= ADDRESS;
               ui32BitMask |= NAME|EMAIL|LOCATION|CLIENT;
          }
          else
@@ -414,6 +510,12 @@ void HandleCliQuery(stRcvdMsg * pstRcvdMsg , int8 * pi8MsgPtr,uint64 ui64ID)
               ui32BitMask |= NOTYPE|CLIENT;
              /*Send error message for unknown query*/
          }
+
+         if(0 != ui32QueryMask)
+         {
+             SearchRecord_New(ui32QueryMask , pi8Value);
+         }
+ 
      } 
     else
     {

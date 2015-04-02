@@ -47,7 +47,7 @@ void ChangeServID()
             if(0 == strcmp("SERVER_ID", pi8Token))
             {
                /*write back new server Id in to configuration file*/
-               fseek(fpConfig,(i32Totlen + i32len -8),SEEK_SET);
+               fseek(fpConfig,(i32Totlen + i32len),SEEK_SET);
                printf("new ID = %ld\n ", gstConfigs.ui64ServID);
                snprintf(achWriteBuff ,MAX_LINE_LENGTH,"SERVER_ID=%8ld\n",gstConfigs.ui64ServID );
                fwrite(achWriteBuff , strlen(achWriteBuff),1,fpConfig);
@@ -141,8 +141,7 @@ void RequestServID()
 
    struct sockaddr_in6 addr_ipv6 = {0};
    int8 achAddr[2 * MAX_LINE_LENGTH] = {0}; 
-   int8 achRqstMsg[] = "00001$"; 
-   int8 achRqstMsg1[] = "00000001$SERVERID$10000000"; 
+   int8 achRqstMsg[] = "NEW$00000"; 
    int32 i32Retval = 0;
    int size = sizeof(struct sockaddr_in6);
    int8 * pi8SavePtr = NULL;
@@ -159,21 +158,20 @@ void RequestServID()
        memcpy(achAddr , gstConfigs.achServerIP , strlen(gstConfigs.achServerIP));
        achAddr[strlen(achAddr)-1] = '\0';
    }
-   i32Retval =  setAddrIpv6(&addr_ipv6,gstConfigs.ui32Port,achAddr);
+   i32Retval =  setAddrIpv6(&addr_ipv6,5003,achAddr);
 
    if(0 == i32Retval)
    {
         /* Send initial request to the server */
         if((bytes = sendto(gUDPServSockFD,achRqstMsg,strlen(achRqstMsg),0,(struct sockaddr *)&addr_ipv6,size)) >= 0)
         {
-                /*if(recvfrom(gUDPServSockFD ,achRqstMsg ,strlen(achRqstMsg) , 0 , NULL, NULL) > 0)*/
+                if(recvfrom(gUDPServSockFD ,achRqstMsg ,strlen(achRqstMsg) , 0 , NULL, NULL) > 0)
                 {
-                     pi8Token = strtok_r(achRqstMsg1 ,DELIMITER , &pi8SavePtr);  
+                     pi8Token = strtok_r(achRqstMsg ,DELIMITER , &pi8SavePtr);  
                      pi8Value = strtok_r(NULL , DELIMITER , &pi8SavePtr);
-                      if(0 == strcmp(pi8Token, MSERVERID) && (0 == strcmp(pi8Value, "SERVERID")))
+                      if(0 == strcmp(pi8Token, "NEW"))
                       {
-                         pi8Token = strtok_r(NULL ,DELIMITER , &pi8SavePtr); 
-                         gstConfigs.ui64ServID = strtol(pi8Token,NULL,0);
+                         gstConfigs.ui64ServID = strtol(pi8Value,NULL,0);
                          /*Write new ID into config file*/
                          ChangeServID();
 
