@@ -18,21 +18,22 @@ extern FILE * fpLog;
 extern pthread_mutex_t mtx;
 extern pthread_t threadIpv4;
 extern pthread_t threadIpv6;
-extern uint16_t maxSrvId;
+extern uint16_t starSrvId;
 extern int socket_ipv4,socket_ipv6; /*Udp sockets for ipv4 and ipv6 server communication*/
+extern uint16_t maxNmSrvs;
 
 int savedIpv4; /*stores howmany ipv4 servers joined the relay server*/
 int savedIpv6; /*stores howmany ipv6 servers joined the relay server*/
-char servIdsIpv4[MAX_SRV_CONN][SRV_ADDR_LEN];
-char servIdsIpv6[MAX_SRV_CONN][SRV_ADDR_LEN];
-skaddr ipv4[MAX_SRV_CONN]; /*stores ipv4 server addresses*/
-skaddr ipv6[MAX_SRV_CONN]; /*stores ipv6 server addresses*/
+char servIdsIpv4[MAX_NUM_SERVS][SRV_ADDR_LEN];
+char servIdsIpv6[MAX_NUM_SERVS][SRV_ADDR_LEN];
+skaddr ipv4[MAX_NUM_SERVS]; /*stores ipv4 server addresses*/
+skaddr ipv6[MAX_NUM_SERVS]; /*stores ipv6 server addresses*/
 
 /*assigns server id for new servers*/
 void assignId(char *srvId){
 	pthread_mutex_lock(&mtx);
-	maxSrvId++;
-	sprintf(srvId,"%05hu",maxSrvId);
+	starSrvId++;
+	sprintf(srvId,"%05hu",starSrvId);
 	writeConf(CONFILE_SRVID,"serverId=",srvId);	
 	pthread_mutex_unlock(&mtx);
 }
@@ -126,7 +127,7 @@ void removeServ(char *srvId,int addrType){
 /*it extracts servers address from the message if the server is new server it assignes new server address for the server*/
 void getSrvId(char *msg,char *strSrvId,int type){
 	char *srvId;
-	if(type==IPV4 && savedIpv4<MAX_SRV_CONN){
+	if(type==IPV4 && savedIpv4<maxNmSrvs){
 	  if((srvId=parseTocken(msg,2,DELIMITER))!=NULL){
 			if(strlen(srvId)==(SRV_ADDR_LEN-1)){
 				if(strcmp(srvId,NEWSERVER)==0)
@@ -139,7 +140,7 @@ void getSrvId(char *msg,char *strSrvId,int type){
 			free(srvId);
 		}
 	}			
-	else if(type==IPV6 && savedIpv6<MAX_SRV_CONN){	
+	else if(type==IPV6 && savedIpv6<maxNmSrvs){	
 		if((srvId=parseTocken(msg,2,DELIMITER))!=NULL){
 			if(strlen(srvId)==(SRV_ADDR_LEN-1)){
 				if(strcmp(srvId,NEWSERVER)==0)
@@ -202,16 +203,16 @@ void  handlMsg(char *msg, int sock, skaddr *addr,int size,int type){
 			if(strcmp(msgType,UPDATE)==0){
 				updateSrvs(msg,srvId);			
 			}
-			else if(strcmp(msgType,ACK)==0){
+			else if(strcmp(msgType,JOIN)==0){
 				if(strcmp(srvId,NEWSERVER)!=0){
 					saveServ(addr,srvId,type);
 					LOG("%ld : Server %s joined.\n",currTime,srvId);
 				}
-				setupAndSendMsg(srvId,ACK,sock,addr,size);
+				setupAndSendMsg(srvId,JOIN,sock,addr,size);
 			}
-			else if(strcmp(msgType,FINAL)==0){
+			else if(strcmp(msgType,DSJOIN)==0){
 				removeServ(srvId,type);				
-				setupAndSendMsg(srvId,FINAL,sock,addr,size);
+				setupAndSendMsg(srvId,DSJOIN,sock,addr,size);
 				LOG("%ld : Server %s disjoined.\n",currTime,srvId);
 			}
 			free(msgType);
@@ -261,6 +262,7 @@ void * Ipv4Msgs(){
 	LOG("%ld : Ipv4 thread started.\n",currTime);	
 
 	sigAction(SIGUSR1,&sig,signalHandler);
+	sigAction(SIGPIPE,&sig,signalHandler);
 
 	for(;;){
  		memset(msg,0,MAX_MSG_LEN);
@@ -283,6 +285,7 @@ void * Ipv6Msgs(){
 	LOG("%ld : Ipv6 thread started.\n",currTime);
 
 	sigAction(SIGUSR1,&sig,signalHandler);
+	sigAction(SIGPIPE,&sig,signalHandler);
 	
 	for(;;){
  		memset(msg,0,MAX_MSG_LEN);
@@ -316,11 +319,13 @@ int copyPort(char *arg,uint16_t *port){
 
 void cmdUsage(){
 	printf("Usage: mserver [option] [value]\n");
-	printf("option:\n -ipv4   for ip4 address\n -ipv6 for ipv6 address\n -port to specify port number\n");
-	printf("e.g. mserver -ipv4 127.0.01 -ipv6 ::01 -port 5002 \n");
+	printf("option:\n -ipv4   for ip4 address\n");
+	printf(" -ipv6   for ipv6 address\n");
+	printf(" -port   to specify port number\n -mns    maximum number of servers supported(less than 100)");
+	printf("e.g. mserver -ipv4 127.0.01 -ipv6 ::01 -port 5002 -mns 20\n");
 }
 
-int parseCmdArg(int arg,char *argv[],char *ipv4,char *ipv6,uint16_t *port){
+int parseCmdArg(int arg,char *argv[],char *ipv4,char *ipv6,uint16_t *port,uint16_t *mxSrvs){
 	int i;
 	for(i=1;(i+1)<arg;i+=2){
 		if(strcmp(argv[i],"-ipv4")==0){
@@ -335,6 +340,10 @@ int parseCmdArg(int arg,char *argv[],char *ipv4,char *ipv6,uint16_t *port){
 			if(copyPort(argv[i+1],port)==-1)
 				return -1;
 		}
+		else if(strcmp(argv[i],"-mns")==0){
+			if(copyPort(argv[i+1],mxSrvs)==-1)
+				return -1;
+		}
 		else{
 			cmdUsage();
 			return -1;
@@ -344,6 +353,10 @@ int parseCmdArg(int arg,char *argv[],char *ipv4,char *ipv6,uint16_t *port){
 		printf("port number is missing\ncommand: mserver -port <port number>\n");
 		return -1;
 	}
+	if((*mxSrvs==0) || (*mxSrvs>100)){
+		printf("Maximum number of servers is missing\ncommand: mserver -mns <number of servers> and it should not be more than 100\n");
+		return -1;
+	}
 	if((strlen(ipv4)==0) && (strlen(ipv6)==0)){
 		printf("Ip address should be provided\ncommand: mserver -ipv4(-ipv6) <ipaddress>\n");
 		return -1;
@@ -351,8 +364,8 @@ int parseCmdArg(int arg,char *argv[],char *ipv4,char *ipv6,uint16_t *port){
 	return 0;
 }
 
-int readAddr(char *ipv4,char *ipv6,uint16_t *port){
-	char *tempIpv4,*tempIpv6,*tempPort;
+int readAddr(char *ipv4,char *ipv6,uint16_t *port,uint16_t *mxSrvs){
+	char *tempIpv4,*tempIpv6,*tempPort,*tempMxSrvs;
 
 	if(ipv4 && ipv6 && port){
 
@@ -374,8 +387,18 @@ int readAddr(char *ipv4,char *ipv6,uint16_t *port){
 			free(tempPort);
 		}
 
+		tempMxSrvs=readConf(CONFILE_ADDR,"maxsrvs=");
+		if(tempMxSrvs){
+			copyPort(tempMxSrvs,mxSrvs);
+			free(tempMxSrvs);
+		}
+
 		if(*port==0){
 			printf("Port number should be configure in \"confadd\" file as: port=<portnumber>\n");
+			return -1;
+		}
+		if((*mxSrvs==0) || (*mxSrvs>100)){
+			printf("Maximum number of severs that can be served should be configure in \"confadd\" file as: maxsrvs=<maximumnumberofservers> and it should not be more than 100\n");
 			return -1;
 		}
 		if(strlen(ipv4)==0 &&strlen(ipv6)==0){
@@ -387,11 +410,11 @@ int readAddr(char *ipv4,char *ipv6,uint16_t *port){
 	return -1;
 }
 
-int readMaxSrvId(){
+int readStarSrvId(){
 	char *srvId;
 	srvId=readConf(CONFILE_SRVID,"serverId=");
 	if(srvId){
-		sscanf(srvId,"%hu",&maxSrvId);
+		sscanf(srvId,"%hu",&starSrvId);
 		free(srvId);
 		return 0;
 	}

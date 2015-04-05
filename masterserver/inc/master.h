@@ -3,15 +3,15 @@
 
 #define SIZE_IPV4 15
 #define SIZE_IPV6 40
-#define MAX_SRV_CONN 20
 #define SRV_ADDR_LEN 6
-#define ACK "NEW"
+#define JOIN "JOIN"
 #define UPDATE "UPDATE"
 #define IPV4 4
 #define IPV6 6
 #define MAX_MSG_LEN 1024
+#define MAX_NUM_SERVS 100
 #define NEWSERVER "00000"
-#define FINAL "FIN"
+#define DSJOIN "DISJOIN"
 #define CONFILE_ADDR "address.conf"
 #define CONFILE_SRVID "servid.conf"
 #define LOG_FILE	"fdmaster.log"
@@ -33,8 +33,8 @@ void * Ipv6Msgs();
 int copyIpAddr(char *arg,char *ipAddr,int size);
 int copyPort(char *arg,uint16_t *port);
 void cmdUsage();
-int parseCmdArg(int arg,char *argv[],char *ipv4,char *ipv6,uint16_t *port);
-int readAddr(char *ipv4,char *ipv6,uint16_t *port);
-int readMaxSrvId();
+int parseCmdArg(int arg,char *argv[],char *ipv4,char *ipv6,uint16_t *port,uint16_t *mxSrvs);
+int readAddr(char *ipv4,char *ipv6,uint16_t *port,uint16_t *mxSrvs);
+int readStarSrvId();
 
 #endif

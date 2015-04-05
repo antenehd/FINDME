@@ -18,8 +18,9 @@ FILE * fpLog;
 pthread_mutex_t mtx;
 pthread_t threadIpv4;
 pthread_t threadIpv6;
-uint16_t maxSrvId;
+uint16_t starSrvId;
 int socket_ipv4,socket_ipv6; /*Udp sockets for ipv4 and ipv6 server communication*/
+uint16_t maxNmSrvs;
 
 
 int main(int argc,char *argv[]){
@@ -43,10 +44,11 @@ int main(int argc,char *argv[]){
 	threadIpv6=0;
 	memset(ipv4,0,SIZE_IPV4);
 	memset(ipv6,0,SIZE_IPV6);
+	maxNmSrvs=0;
 
 	/*try to read ip addresses and port numbers from terminal*/
-	if(argc>1){
-		if(parseCmdArg(argc,argv,ipv4,ipv6,&port)==-1){
+	if(argc>2){
+		if(parseCmdArg(argc,argv,ipv4,ipv6,&port,&maxNmSrvs)==-1){
 			LOG("	Invalid command line arguments.	Exiting...\n");
 			return -1;	
 		}	
@@ -55,15 +57,16 @@ int main(int argc,char *argv[]){
 
 	/*try to read ip addresses and port numbers from configuration file*/ 
 	if(argParsed==0){
-		if(readAddr(ipv4,ipv6,&port)==-1){
+		if(readAddr(ipv4,ipv6,&port,&maxNmSrvs)==-1){
 			LOG("	Reading \"address.conf\" file failed. Exiting...\n");
 			printf("\"address.conf\" file is not properly configured\n");
 			return -1;
 		}
 	}
-
+	
 	/*setup to handle the specified signals*/
 	sigAction(SIGHUP,&sig,signalHandler);
+	sigAction(SIGPIPE,&sig,signalHandler);
 	sigAction(SIGINT,&sig,signalHandler);
 	sigAction(SIGQUIT,&sig,signalHandler);
 	sigAction(SIGTERM,&sig,signalHandler);
@@ -72,10 +75,10 @@ int main(int argc,char *argv[]){
 	/*initialize mutex*/
 	pthread_mutex_init(&mtx, NULL);
 	
-	/*read the maximum server id that was assigned by this relay server*/
-	if(readMaxSrvId()==-1){
-		printf("Maximum server id should found in \"servid\" file in the form: serverId=<maxsrvid>\n");
-		LOG("	Reading maximum server id from \"servid.conf\" failed. Exiting...\n");
+	/*read the Starting server id that will be assigned by this relay server*/
+	if(readStarSrvId()==-1){
+		printf("Starting server id should found in \"servid\" file in the form: serverId=<starsrvid>\n");
+		LOG("	Reading starting server id from \"servid.conf\" failed. Exiting...\n");
 		return -1;
 	}
 
