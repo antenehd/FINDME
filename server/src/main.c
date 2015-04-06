@@ -80,7 +80,7 @@ int main()
 {
 
 #if 1
- int32 i32size = 1000;
+ int32 i32size = 100;
  stRcvdMsg * pstNewMsg = NULL;
 int8*  pachTestArray = NULL; 
 int8 * pi8Token = NULL;
@@ -103,6 +103,7 @@ if(NULL == (gpHashTable = CreateHash(i32size)))
     FINDME_LOG("ERROR :Hash creation failed\n");
     return -1;
 }
+pthread_mutex_init(&stRecMutex,NULL);
 /*Create socket*/
 if(0 > (gUDPCliSockFD = CreateUDPSock(CLI_PORT_NUM)))
 {
@@ -151,6 +152,10 @@ if(pthread_create(&prcs_thread , NULL , &ProcessThreadStart, NULL) != 0){
 
 FINDME_LOG("INFO :Thread Creation successful\n");
 fflush(fpLog);
+ 
+
+if(signal(SIGINT,sighandler_SIGINT) == SIG_ERR)
+     FINDME_LOG("SIGINT cant be handled\n");
 while(1)
 {
    if(NULL != (pstNewMsg = CreateMsg()))
@@ -160,27 +165,42 @@ while(1)
          perror("Mq receive");
          continue;
       }
+                printf("MQ_RECEIVE\n");
    
-       pachTestArray = pstNewMsg->achBuffer; 
-      /*Check for the ID*/
-      pi8Token = strtok_r(pachTestArray ,DELIMITER , &pi8SavePtr);
-      ui64ID = strtol(pi8Token,NULL,0);
-
-      if(0 == ui64ID)
+      pachTestArray = pstNewMsg->achBuffer; 
+      if(0 == strcmp("0$QUERY\n" , pachTestArray))
       {
          /*If it is a new client*/
          AssignIDToCli(pstNewMsg);
       }
-      else if(0 == isclient(ui64ID))
+      /*Check for the ID*/
+      pi8Token = strtok_r(pachTestArray ,DELIMITER , &pi8SavePtr);
+      ui64ID = strtol(pi8Token,NULL,0);
+
+      
+      if(0 == isclient(ui64ID))
       {
          /*process message from client*/
-         HandleClientReceivedMsg(pstNewMsg , pi8SavePtr);
-      } 
+         HandleClientReceivedMsg(pstNewMsg , pi8SavePtr,ui64ID);
+      }
+#if 1
+   if(0 == (strcmp(pi8Token , "NEW")))
+   {
+      printf("IN function = %s\n",__FUNCTION__);
+      HandleServNew(pstNewMsg , pi8SavePtr,ui64ID);
+   }
+   else if(0 == (strcmp(pi8Token , "UPDATE")))
+   {
+      HandleServUpdate(pstNewMsg , pi8SavePtr);
+   }
+
+#else 
       else if(0 == isServer(ui64ID))
       {
          /*process message from server*/
-         HandleServerReceivedMsg(pstNewMsg , pi8SavePtr);
+         HandleServerReceivedMsg(pstNewMsg , pi8SavePtr, ui64ID);
       }
+#endif      
       else
       {
          /*Message from unknown entity*/
@@ -191,10 +211,9 @@ while(1)
 }
 
 #endif
+
 return 0;
 }
-
-
 
 
 /*
@@ -203,23 +222,22 @@ return 0;
 
 */
 #if 0
- stRcvdMsg * testmsg = NULL;
+#if 1
+stRcvdMsg * testmsg = NULL;
  stRcvdMsg * testmsg1 = NULL;
  stRcvdMsg * testmsg2 = NULL;
  stRcvdMsg * testmsg3 = NULL;
  stRcvdMsg * testmsg4 = NULL;
  stRcvdMsg * testmsg5 = NULL;
+ int8 testmodes[3][25] = {"QUERY", "UPDATE","NEW"};
  int8 msg[] = {"000000000$QUERY"};
- int8 msg1[] = {"10000001$UPDATE$NAME$varun$EMAIL$raghunfs@gmail.com$ADDRESS$Espoo$LOCATION$192.168.0.1$TIMESTAMP$12345"};
- int8 msg2[] = {"10000002$QUERY$10000001$NAME$raghu"};
+ int8 msg1[] = {"NAME$raghu$EMAIL$raghunfs@gmail.com$ADDRESS$Espoo$LOCATION$192.168.0.1$TIMESTAMP$12345"};
+ int8 msg2[] = {"QUERY$10000001$NAME$raghu"};
 
- int8 msg3[] = {"1000000$UPDATE$CLIENTID$10000001$NAME$raghu$EMAIL$raghunfs@gmail.com$ADDRESS$Espoo$LOCATION$192.168.0.1$TIMESTAMP$23456"};
- int8 msg4[] = {"1000000$NEW$CLIENTID$10000001$NAME$varun$EMAIL$raghunfs@gmail.com$ADDRESS$Espoo$LOCATION$192.168.0.1"}; 
- int8 msg5[] = {"1000000$NEW$CLIENTID$10000005$NAME$varun$EMAIL$raghunfs@gmail.com$ADDRESS$Espoo$LOCATION$192.168.0.1"}; 
- pthread_mutex_init(&stRecMutex,NULL);
-
- if(signal(SIGINT,sighandler_SIGINT) == SIG_ERR)
-     FINDME_LOG("SIGINT cant be handled\n");
+ int8 msg3[] = {"CLIENTID$10000001$NAME$raghu$EMAIL$raghunfs@gmail.com$ADDRESS$Espoo$LOCATION$192.168.0.1$TIMESTAMP$23456"};
+ int8 msg4[] = {"CLIENTID$10000001$NAME$varun$EMAIL$raghunfs@gmail.com$ADDRESS$Espoo$LOCATION$192.168.0.1"}; 
+ int8 msg5[] = {"CLIENTID$10000005$NAME$varun$EMAIL$raghunfs@gmail.com$ADDRESS$Espoo$LOCATION$192.168.0.1"}; 
+#endif
 
  testmsg = malloc(sizeof(stRcvdMsg));
  testmsg->strcvd_addr = malloc(sizeof(struct sockaddr_in)); 
@@ -252,21 +270,19 @@ return 0;
  testmsg5->achBuffer = malloc(MAX_MSG_LEN); 
  strcpy(testmsg5->achBuffer,msg5);
 
- if(NULL == (gpHashTable = CreateHash(i32size)))
- return -1; 
  
  printf("\nIn line %d\n",__LINE__);
- HandleClientReceivedMsg(testmsg);
+ HandleClientReceivedMsg(testmsg, testmodes[0]);
  printf("\nIn line %d\n",__LINE__);
- HandleClientReceivedMsg(testmsg1);
+ HandleClientReceivedMsg(testmsg1, testmodes[1]);
  printf("\nIn line %d\n",__LINE__);
- HandleClientReceivedMsg(testmsg2);
+ HandleClientReceivedMsg(testmsg2, testmodes[0]);
  printf("\nIn line %d\n",__LINE__);
- HandleServerReceivedMsg(testmsg3);
+ HandleServerReceivedMsg(testmsg3,testmodes[1]);
  printf("\nIn line %d\n",__LINE__);
- HandleServerReceivedMsg(testmsg4);
+ HandleServerReceivedMsg(testmsg4, testmodes[2]);
  printf("\nIn line %d\n",__LINE__);
- HandleServerReceivedMsg(testmsg5);
+ HandleServerReceivedMsg(testmsg5,testmodes[2]);
  printf("\nIn line %d\n",__LINE__);
 
   PrintAllRecord();
@@ -274,4 +290,5 @@ return 0;
  /*kill(getpid(), SIGINT);*/
  return 0;
 #endif
+
 

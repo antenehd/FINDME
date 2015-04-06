@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include <time.h>
 
+        int sokk= 0;
+        int id= 0;
+	FILE *idfile = NULL;
 // structure to hold the fields used by each client
 struct info{
 	char name[20];
@@ -18,11 +21,13 @@ struct info{
 
 // create contents of locations in a list to use as random locations
 int create_list(struct info *list, int elements, char *nombre, char *correo){
-	for(int x=0; x < elements; x++){
+	int x = 0;
+
+        for( x=0; x < elements; x++){
 		memset(&list[x], 0, sizeof(struct info));
 	}
 
-	for(int x=0; x < elements; x++){
+	for(x=0; x < elements; x++){
 		strcpy(list[x].name, nombre);
 		strcpy(list[x].email, correo);
 	}
@@ -61,23 +66,26 @@ int create_list(struct info *list, int elements, char *nombre, char *correo){
 }
 
 int separate_function(char *to_sepa, char **save, int how_many){
-	save[0] = strtok(to_sepa, ":");
+	int x = 0;
+        int y = 0;
+        save[0] = strtok(to_sepa, ":");
 
-	for(int x=1; x < how_many ; x++){
+	for(x=1; x < how_many ; x++){
 		save[x] = strtok(NULL, ":");
 	}
 
-	for(int y=0; y < how_many; y++)
+	for( y=0; y < how_many; y++)
 		printf("This is the word #%d: %s\n", y, save[y]);
 
 	return 0;
 }
-
 // function to build the string to be sent to the server
 int build_location(char *locstr, struct info extract, int num_cl, int indic, int option, char *query, char *query2){
 	memset(locstr, 0, (sizeof(char)*strlen(locstr)));
 	printf("num_cl is: %d\nindic is: %d\noption is: %d\nquery is: %s\nquery 2 is: %s\n", num_cl, indic, option, query, query2);
 
+	struct timeval tstamp = {0};
+	gettimeofday(&tstamp , NULL);
 	// build the string with a zero as client ID
 	if(!num_cl){
 		strcpy(locstr, "0$QUERY\n");
@@ -89,7 +97,7 @@ int build_location(char *locstr, struct info extract, int num_cl, int indic, int
 		// here we just update our own data
 		if(!option){
 			char temp[10] = "";
-			sprintf(locstr, "%d$", num_cl);
+			snprintf(locstr,10, "%d$", id);
 			strcat(locstr, "UPDATE$NAME$");
 			strcat(locstr, extract.name);
 			strcat(locstr, "$EMAIL$");
@@ -99,7 +107,7 @@ int build_location(char *locstr, struct info extract, int num_cl, int indic, int
 			strcat(locstr, "$LOCATION$");
 			strcat(locstr, extract.coordenates);
 			strcat(locstr, "$TIMESTAMP$");
-			sprintf(temp, "%d\n", indic);
+			sprintf(temp, "%ld\n", tstamp.tv_usec);
 			strcat(locstr, temp);
 			return 0;
 		}
@@ -140,7 +148,7 @@ int build_location(char *locstr, struct info extract, int num_cl, int indic, int
 				strcat(locstr, "$LOCATION$");
 				strcat(locstr, extract.coordenates);
 				strcat(locstr, "$TIMESTAMP$");
-				sprintf(temp, "%d\n", indic);
+			        sprintf(temp, "%ld\n", tstamp.tv_usec);
 				strcat(locstr, temp);
 				return 0;				
 			}
@@ -152,18 +160,22 @@ int build_location(char *locstr, struct info extract, int num_cl, int indic, int
 int main(){
 	struct sockaddr_in serv;
 	memset(&serv, 0, sizeof(serv));
-	int option = 0, sokk = 0, ran_loc = 0, id = 0, indic = 0;
-	char location[101] = "", query[50] = "", answer[250] = "", update[70] = "", **save = NULL, name[20] = "", email[25] = "";
+	int option = 0, ran_loc = 0, indic = 0;
+	char location[101] = "", query[50] = "", answer[250] = "", update[70] = "", name[20] = "", email[25] = "";
 	struct info arr[6];
-	FILE *idfile = NULL;
 	socklen_t temp_size;
+        char temp[100]  = {0};
+        char * pi8SavePtr = NULL;
+        char * pi8Token = NULL;
+        char * pi8Token1 = NULL;
+        char save[10][100] = {0};
+
 
 	// open a socket, declare what kind it is and save IP and port into sockaddr_in structure
 	sokk = socket(AF_INET, SOCK_DGRAM, 0);
 	serv.sin_family = AF_INET;
 	serv.sin_port = htons(7000);
 	inet_pton(AF_INET, "127.0.0.1", &serv.sin_addr);
-
 	// check if this client has already an ID assigned
 	idfile = fopen("ID_file", "r");
 
@@ -172,12 +184,14 @@ int main(){
 		perror("This client has not yet assigned an ID:");
 
 		// build a string with zero as ID
+printf("Line_num = %d\n",__LINE__);
 		if(build_location(location, arr[ran_loc], id, indic, 0, NULL, NULL) != 0){
 			printf("Error while building the string to be sent to the server, idfile = NULL\n");
 			return -1;
 		}
 
 		// send the string to the server containing zero as ID
+        printf("Sock = %d\n", sokk);
 		if(strlen(location) != sendto(sokk, location, strlen(location), 0, (struct sockaddr *) &serv, sizeof(serv))){
 			perror("some error happened when sending zero as ID, the location information could not be sent properly (id is 0):");
 			return -1;
@@ -185,20 +199,27 @@ int main(){
 
 		// read from the server what ID it assigns to this client and save it into a file
 		temp_size = sizeof(serv);
-		if(recvfrom(sokk, &id, sizeof(int), 0, (struct sockaddr*)&serv, &temp_size) == -1){	// modify this in order to decode properly the answer from server
+		if(recvfrom(sokk, temp, sizeof(temp), 0, (struct sockaddr*)&serv, &temp_size) == -1){	// modify this in order to decode properly the answer from server
 			perror("some error happened at reading the ID sent by the server:");
 			return -1;
 		}
+
+                pi8Token = strtok_r(temp , "$" , &pi8SavePtr);
+                pi8Token = strtok_r(NULL , "$" , &pi8SavePtr);
+                pi8Token = strtok_r(NULL , "$" , &pi8SavePtr);
+                pi8Token = strtok_r(NULL , "$" , &pi8SavePtr);
+                id = strtol(pi8Token,NULL,0);
 		idfile = fopen("ID_file", "w");
 		if(idfile == NULL){
 			perror("An error happened when creating the ID_file in order to write the newly assigned ID:");
 			return -1;
 		}
-		if(fwrite(&id, sizeof(id), 1, idfile) != 1){
+
+		if(fwrite(pi8Token, strlen(pi8Token), 1, idfile) != 1){
 			printf("The newly assigned ID could not be written into the file\n");
 			return -1;
 		}
-
+                fflush(idfile);
 		// When running the client first time, the identity of the user needs to be specified
 		printf("This is the first time you use this program, specify who you are:\n");
 		printf("What is your name? write it and then press enter:\n");
@@ -210,10 +231,11 @@ int main(){
 
 	// this client has already an ID, read it from the file and store it in variable id
 	else{
-		if(fread(&id, sizeof(int), 1, idfile) != 1){
+		if(fgets(temp,sizeof(temp), idfile) == NULL){
 			printf("some error happened at reading the ID stored in the file\n");
 			return -1;
 		}
+                id = strtol(temp , NULL , 0);
 		printf("The id read from the file is: %d\n", id);
 	}
 
@@ -228,16 +250,19 @@ int main(){
 
 	// pick a location randomly to use as current location
 	srand(time(NULL));
-	ran_loc = rand() % 10;
-
+	ran_loc = rand() % 6;
+        printf("Indc = %d\n",indic);
+	indic++;
 	// build a string containing the location information (first mandatory update)
-	if(build_location(location, arr[ran_loc], id, indic, 0, NULL, NULL) != 0){
+printf("Line_num = %d\n",__LINE__);
+	if(build_location(location, arr[ran_loc], indic, 1, 0, NULL, NULL) != 0){
 		printf("Error while building the string to be sent to the server, ID_file exists\n");
 		return -1;
 	}
 	printf("The string to be sent to the server as initial location is (with exiting idfile): %s\n", location);
 
 	// send location information to the server (first mandatory update)
+        printf("Sock = %d\n", sokk);
 	ssize_t first_sent = sendto(sokk, location, strlen(location), 0, (struct sockaddr *) &serv, sizeof(serv));
 	if(strlen(location) != first_sent){
 		perror("some error happened while sending location info to the server, the location information could not be sent properly:");
@@ -261,6 +286,7 @@ int main(){
 			scanf("%s", query);
 
 			// build the query string with name as parameter
+printf("Line_num = %d\n",__LINE__);
 			if(build_location(location, arr[ran_loc], id, indic, option, query, NULL) != 0){
 				printf("Error while creating string for query by name\n");
 				return -1;
@@ -292,6 +318,7 @@ int main(){
 			scanf("%s", query);
 
 			// build the query string with email as parameter
+printf("Line_num = %d\n",__LINE__);
 			if(build_location(location, arr[ran_loc], id, indic, option, query, NULL) != 0){
 				printf("Error while creating string for query by email\n");
 				return -1;
@@ -323,10 +350,13 @@ int main(){
 			scanf("%s", update);
 
 			// Separate the words in the given string
-			separate_function(update, save, 3);
-
+			//separate_function(update, save, 3);
+          
+                         pi8Token = strtok_r(update , ":" , &pi8SavePtr);
+                         pi8Token1 = strtok_r(NULL , ":" , &pi8SavePtr);
 			// build the update string with the new name or email
-			if(build_location(location, arr[ran_loc], id, indic, option, save[0], save[1]) != 0){
+printf("Line_num = %d\n",__LINE__);
+			if(build_location(location, arr[ran_loc], id, indic, option, pi8Token, pi8Token1) != 0){
 				printf("Error when creating a string for an update\n");
 				return -1;
 			}

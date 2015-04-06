@@ -13,14 +13,15 @@
 #include "data_structure.h"
 #include "proto_types.h"
 
-uint64 gi64ServID = 10000000;
-uint64 gi64StartID;
-uint64 gi64EndID = 1000000;
+uint64 gi64StartID = 1;
+uint64 gi64EndID = 100;
 
 extern int32 gUDPCliSockFD;
+extern int32 gUDPServSockFD;
 extern HashTable_t  *gpHashTable;
 extern pthread_mutex_t stRecMutex;
 FILE * fpLog;
+extern stConfigFileItems gstConfigs;
 
 void PrintAllRecord()
 {
@@ -74,7 +75,7 @@ void sighandler_SIGINT()
 
   int32 i32Count = 0;
   HashRecord_t *  pstNextRec = NULL;
-
+  printf("IN SIGNAL HANDLER\n");
   PrintAllRecord();
   /*Before exiting the process free all  allocated the memory*/
   if(0 == pthread_mutex_lock(&stRecMutex))
@@ -113,6 +114,7 @@ void sighandler_SIGINT()
   pthread_mutex_unlock(&stRecMutex);
   mq_unlink(MQ_NAME);
   fflush(fpLog);
+  exit(0);
 }
 
 
@@ -231,16 +233,14 @@ void AssignIDToCli(stRcvdMsg * pstRcvdMsg)
 
   /*Check for the range applicable to client, and assign an ID*/
 
-  if((ui64ClientID > gi64StartID)  && (ui64ClientID < gi64EndID))
+  if((ui64ClientID >= gi64StartID)  && (ui64ClientID < gi64EndID))
   {
-     pstRedAdd = CreateRecord(gi64ServID+ui64ClientID);
+     pstRedAdd = CreateRecord(gstConfigs.ui64ServID+ui64ClientID);
      ui32BitMask += CLIENT|CLIENTID;
      PrepareCliRsp(pstRcvdMsg,pstRedAdd,ui32BitMask);
      ui64ClientID++;
   }
-
- 
-
+  
 }
 
 
@@ -346,9 +346,12 @@ stRecord * SearchRecord_New(uint32 ui32QueryMask , int8 *pi8Query)
              /*If there are more than one record in the bucket*/
                  pstPlaceHolder = pstPlaceHolder->pstnext;
            }
+           if(i32Found == 1)
+           {
+              pthread_mutex_unlock(&stRecMutex);
+              return pstRetval;
+           }
         }
-        if(i32Found == 1)
-        break;
         
         i32key++;
 
@@ -373,10 +376,11 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
   if((NULL != pstRcvdMsg) && (NULL != pachRepBuff))
   {
       memset(pachRepBuff , 0 , MAX_MSG_LEN);
-      snprintf(pachRepBuff, sizeof(uint64),"%ld",gi64ServID);
-      strcat(pachRepBuff , DELIMITER);
       if((ui32BitMask & CLIENT) != 0)
       {
+          snprintf(pachRepBuff, sizeof(uint64),"%ld",
+                    gstConfigs.ui64ServID);
+          strcat(pachRepBuff , DELIMITER);
           /*Message to another client*/
           strcat(pachRepBuff , REPLY);
       }
@@ -385,12 +389,16 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
           /*Message to another Server*/
           if((ui32BitMask & UPDATE) != 0)
           {
-              strcat(pachRepBuff , "UPDATE");  
+              strcpy(pachRepBuff , "UPDATE");  
           }
           else if((ui32BitMask & NEW) != 0)
           {
-              strcat(pachRepBuff , "NEW");      
+              strcpy(pachRepBuff , "NEW");      
           }    
+          strcat(pachRepBuff , DELIMITER);
+          snprintf(achBuff, sizeof(uint64),"%5ld",gstConfigs.ui64ServID);
+          strcat( pachRepBuff, achBuff);
+          memset(achBuff , 0 , sizeof(achBuff));
       }
       else
       {
@@ -454,16 +462,51 @@ void PrepareCliRsp(stRcvdMsg * pstRcvdMsg,stRecord * pstRedAdd,uint32 ui32BitMas
       pachRepBuff[strlen(pachRepBuff)-1] = '\0';
       printf("Buffer: %s\n",pachRepBuff);
 
-     if((bytes = sendto(gUDPCliSockFD,pachRepBuff,strlen(pachRepBuff),
-                0,(struct sockaddr *)pstRcvdMsg->strcvd_addr,size)) < 0)
+     if((ui32BitMask & CLIENT) != 0)
      {
+        if((bytes = sendto(gUDPCliSockFD,pachRepBuff,strlen(pachRepBuff),
+                0,(struct sockaddr *)pstRcvdMsg->strcvd_addr,size)) < 0)
+        {
            FINDME_LOG("ERROR : Message could not be sent to client\n");
            perror("Sendto");
+        }
+     }
+     else if((ui32BitMask & SERVER) != 0)
+     {
+        SendtoServ(pachRepBuff);           
      }
      freeMsg(pstRcvdMsg);
      free(pachRepBuff);
   }
  
+}
+
+
+void SendtoServ(int8 * pachRepBuff)
+{
+  struct sockaddr_in6 addr_ipv6 = {0};
+  int8 achAddr[2 * MAX_LINE_LENGTH] = {0};
+
+    if(strcnt(gstConfigs.achServerIP,':') <= 1)
+   {
+       MapV4toV6(achAddr);
+   }
+   else
+   {
+      memcpy(achAddr , gstConfigs.achServerIP , strlen(gstConfigs.achServerIP));
+      achAddr[strlen(achAddr)-1] = '\0';
+   }
+
+  setAddrIpv6(&addr_ipv6,gstConfigs.ui32Port,achAddr);
+
+  if((sendto(gUDPServSockFD,pachRepBuff,strlen(pachRepBuff),
+          0,(struct sockaddr *)&addr_ipv6,sizeof(struct sockaddr_in6))) < 0)
+  {
+     FINDME_LOG("ERROR : Message could not be sent to client\n");
+     perror("Sendto");
+  }
+
+
 }
 
 void HandleCliQuery(stRcvdMsg * pstRcvdMsg , int8 * pi8MsgPtr,uint64 ui64ID)
@@ -480,7 +523,7 @@ void HandleCliQuery(stRcvdMsg * pstRcvdMsg , int8 * pi8MsgPtr,uint64 ui64ID)
 
  if(NULL != pi8MsgPtr)
  { 
-    if(NULL != (pstRedAdd = SearchRecord(ui64RecId)))
+    if(0  == isclient(ui64ID))
     {
          pi8Token = strtok_r(pi8MsgPtr , DELIMITER , &pi8SavePtr);
          pi8Value = strtok_r(NULL , DELIMITER , &pi8SavePtr);
@@ -513,7 +556,10 @@ void HandleCliQuery(stRcvdMsg * pstRcvdMsg , int8 * pi8MsgPtr,uint64 ui64ID)
 
          if(0 != ui32QueryMask)
          {
-             SearchRecord_New(ui32QueryMask , pi8Value);
+             if(NULL == (pstRedAdd = SearchRecord_New(ui32QueryMask , pi8Value)))
+             {
+              ui32BitMask = NOTYPE|CLIENT;
+             }
          }
  
      } 
@@ -531,9 +577,9 @@ void HandleCliQuery(stRcvdMsg * pstRcvdMsg , int8 * pi8MsgPtr,uint64 ui64ID)
 
 int32 isclient(uint64 ui64ID)
 {
-uint64 ui64Temp =ui64ID - gi64ServID; 
+ uint64 ui64Temp =ui64ID - gstConfigs.ui64ServID; 
 /*Check for the valid client ID value*/
-   if((ui64Temp > gi64StartID)  && (ui64Temp < gi64EndID))
+   if((ui64Temp >= gi64StartID)  && (ui64Temp < gi64EndID))
    {
       return 0;
    }
@@ -564,11 +610,10 @@ void HandleCliUpdate(stRcvdMsg * pstRcvdMsg , int8 * pi8MsgPtr ,uint64 ui64ID)
 }
 
 
-int32  HandleClientReceivedMsg(stRcvdMsg * pstRcvdMsg , int8*  pachTestArray)
+int32  HandleClientReceivedMsg(stRcvdMsg * pstRcvdMsg , int8*  pachTestArray , uint64 ui64ID)
 {
 int8 * pi8Token = NULL;
 int8 * pi8SavePtr = NULL;
-uint64 ui64ID = 0;
 
 if(NULL != pstRcvdMsg)
 {
@@ -591,9 +636,11 @@ return 0;
 
 int isServer(ui64ID)
 {
+ 
+ if(ui64ID >= 10000)
+    return 0;
 
-
-return 0;
+ return -1;
 }
 
 uint32 FillRecord(stRecord * pstActRec,int8 * pi8MsgPtr)
@@ -690,6 +737,7 @@ void  HandleServNew(stRcvdMsg * pstRcvdMsg ,int8 * pi8MsgPtr,uint64 ui64ID)
  if(NULL != pi8MsgPtr)
  { 
     pi8Token = strtok_r(pi8MsgPtr , DELIMITER , &pi8SavePtr);
+    pi8Token = strtok_r(NULL, DELIMITER , &pi8SavePtr);
     if(0 == strcmp("CLIENTID",pi8Token))
     {
         pi8Token = strtok_r(NULL , DELIMITER , &pi8SavePtr);
@@ -742,12 +790,11 @@ if(NULL !=  pstRcvdMsg && (NULL != pi8MsgPtr))
  }
 }
 
-void HandleServerReceivedMsg(stRcvdMsg * pstRcvdMsg,int8*  pachTestArray)
+void HandleServerReceivedMsg(stRcvdMsg * pstRcvdMsg,int8*  pachTestArray , uint64 ui64ID)
 {
 
 int8 * pi8Token = NULL;
 int8 * pi8SavePtr = NULL;
-uint64 ui64ID = 0;
 
 if(NULL !=  pstRcvdMsg)
 {
@@ -755,6 +802,7 @@ if(NULL !=  pstRcvdMsg)
    pi8Token = strtok_r (pachTestArray, DELIMITER , &pi8SavePtr);
    if(0 == (strcmp(pi8Token , "NEW")))
    {
+      printf("IN function = %s\n",__FUNCTION__);
       HandleServNew(pstRcvdMsg , pi8SavePtr,ui64ID);
    }
    else if(0 == (strcmp(pi8Token , "UPDATE")))

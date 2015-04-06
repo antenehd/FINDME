@@ -47,7 +47,7 @@ void ChangeServID()
             if(0 == strcmp("SERVER_ID", pi8Token))
             {
                /*write back new server Id in to configuration file*/
-               fseek(fpConfig,(i32Totlen + i32len),SEEK_SET);
+               fseek(fpConfig,(i32Totlen + i32len+4),SEEK_SET);
                printf("new ID = %ld\n ", gstConfigs.ui64ServID);
                snprintf(achWriteBuff ,MAX_LINE_LENGTH,"SERVER_ID=%8ld\n",gstConfigs.ui64ServID );
                fwrite(achWriteBuff , strlen(achWriteBuff),1,fpConfig);
@@ -85,6 +85,7 @@ int32 readConfigFile()
             if(0 == strcmp("SERVER_ID", pi8Token))
             {
                gstConfigs.ui64ServID = strtol(pi8Value,NULL,0);
+               printf("SeverID = %ld\n",gstConfigs.ui64ServID);
             }
 
             if(0 == strcmp("PORT", pi8Token))
@@ -147,7 +148,8 @@ void RequestServID()
    int8 * pi8SavePtr = NULL;
    int8 * pi8Token = NULL;
    int8 * pi8Value = NULL;
-   int32  bytes = 0;  
+   int32  bytes = 0; 
+   int8 achServID[30]= {"000"}; 
     /*Look for ':' to identify the IPversion*/
    if(strcnt(gstConfigs.achServerIP,':') <= 1)
    {
@@ -158,7 +160,8 @@ void RequestServID()
        memcpy(achAddr , gstConfigs.achServerIP , strlen(gstConfigs.achServerIP));
        achAddr[strlen(achAddr)-1] = '\0';
    }
-   i32Retval =  setAddrIpv6(&addr_ipv6,5003,achAddr);
+   i32Retval =  setAddrIpv6(&addr_ipv6,gstConfigs.ui32Port,achAddr);
+   //i32Retval =  setAddrIpv6(&addr_ipv6,5003,achAddr);
 
    if(0 == i32Retval)
    {
@@ -171,7 +174,10 @@ void RequestServID()
                      pi8Value = strtok_r(NULL , DELIMITER , &pi8SavePtr);
                       if(0 == strcmp(pi8Token, "NEW"))
                       {
-                         gstConfigs.ui64ServID = strtol(pi8Value,NULL,0);
+                         /*strcat(achServID,pi8Value);
+                         gstConfigs.ui64ServID = strtoll(achServID,NULL,0);*/
+                         gstConfigs.ui64ServID = atoi(pi8Value);
+                         printf("SeverID = %ld %s\n",gstConfigs.ui64ServID, achServID);
                          /*Write new ID into config file*/
                          ChangeServID();
 
@@ -245,12 +251,12 @@ void * ProcessThreadStart()
      {
 
      readset = copyset;
+     if(NULL == (pstNewMsg = CreateMsg()))
+     {continue; }
      if(select(maxfd , &readset , NULL ,NULL , NULL)  >= 0)
      {
 
          memset(datagram , 0 , MAX_MSG_LEN);
-         if(NULL == (pstNewMsg = CreateMsg()))
-         {continue; }
      
         if(FD_ISSET(gUDPCliSockFD , &readset))
         {
@@ -271,17 +277,20 @@ void * ProcessThreadStart()
                         perror("recvfrom");
                         return NULL;
                 }
+                printf("Serv recvd  = %s\n",datagram);
                 isset = 1;
         }
        
         if(isset)
         {
+                printf("Buffer : %s\n",datagram);
                 isset = 0;
                 memcpy(pstNewMsg->achBuffer , datagram,n);
                 if((mq_send(gMsgQID, (char *) pstNewMsg, sizeof(stRcvdMsg), priority)) < 0 )
                 {
                    FINDME_LOG("ERROR: mq_send : packet can not be put in the mq\n");
                 }
+                printf("MQ_SEND\n");
          }
        }
     } 

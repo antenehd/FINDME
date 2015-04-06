@@ -1,7 +1,7 @@
 #ifndef _datastructure
 #define _datastructure
 
-#define CLI_PORT_NUM  45000
+#define CLI_PORT_NUM  7000
 #define SERV_PORT_NUM 46000
 
 #define MSERVERID "00000001"
@@ -11,7 +11,7 @@
 
 
 /* message queue details */
-#define MQ_NAME       "/testmsg"
+#define MQ_NAME       "/testmsg1"
 #define MAX_MSG       9
 #define MQ_MODE       0777
 #define IPV6          6
@@ -87,10 +87,9 @@ typedef struct HashTable_s
 
 typedef struct _stConfigFileItems
 {
-   int8 achServerIP[MAX_LINE_LENGTH];
    uint64 ui64ServID;
    uint32 ui32Port;
-   uint32 ui32IPVer;
+   int8 achServerIP[MAX_LINE_LENGTH];
 }stConfigFileItems;
 
 
