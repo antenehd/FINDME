@@ -14,9 +14,9 @@ where firstservid is replaced by the real first server id and it should always b
 
 File "address.conf" contains the local ip address and port number this master server listen for incoming messages. if this is not configured this values should be give in terminal as argument when the program is started.To configure the address value save the following in "address.conf" file:
 
-port=portnumber	    ipv4=ipv4address	   ipv6=ipv6address
+port=portnumber	    ipv4=ipv4address	   ipv6=ipv6address     maxsrvs=maxservssupported  
 
-where portnumber,ipv4address and ipv6address is replaced with the real value.
+where portnumber,ipv4address, ipv6address and maxservssupported is replaced with the real value.
 
 
 
