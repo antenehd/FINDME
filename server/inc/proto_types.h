@@ -25,4 +25,5 @@ int32 isServer();
 void MapV4toV6( int8 * achAddr);
 int strcnt(const int8 *str, int8 c);
 int setAddrIpv6(struct sockaddr_in6 *addr_ipv6,uint16_t port,char *ipv6);
+int writeConf(char *filename,char *type,char *value);
 #endif

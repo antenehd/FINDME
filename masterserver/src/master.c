@@ -227,7 +227,7 @@ void sigAction(int signal,struct sigaction *sigact,void handler (int)){
 	sigaction(signal,sigact,NULL);
 }
 
-/*handles signals when main thread receives signal*/
+/*handles signals */
 void  signalHandler(int sigNumber){
 	time_t currTime;
 

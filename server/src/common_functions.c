@@ -22,7 +22,7 @@ extern int32 gUDPCliSockFD;
 extern int32 gUDPServSockFD;
 extern FILE * fpLog;
 stConfigFileItems gstConfigs;
-
+/*
 void ChangeServID()
 {
 
@@ -46,7 +46,7 @@ void ChangeServID()
 
             if(0 == strcmp("SERVER_ID", pi8Token))
             {
-               /*write back new server Id in to configuration file*/
+              // write back new server Id in to configuration file
                fseek(fpConfig,(i32Totlen + i32len+4),SEEK_SET);
                printf("new ID = %ld\n ", gstConfigs.ui64ServID);
                snprintf(achWriteBuff ,MAX_LINE_LENGTH,"SERVER_ID=%8ld\n",gstConfigs.ui64ServID );
@@ -57,6 +57,27 @@ void ChangeServID()
       }
       fclose(fpConfig);
    }
+}
+*/
+
+/*writes the value "value" associated with the type "type" in the file "filename"*/
+int writeConf(char *filename,char *type,char *value){
+	FILE * conf;
+	char *ptr;
+	char rd[MAX_WRITE_STRING];
+	conf=fopen(filename,"r+");
+	memset(rd,0,MAX_WRITE_STRING);
+	fread(rd,sizeof(char),MAX_WRITE_STRING-1,conf);
+	ptr=strstr(rd,type);
+	if(ptr){
+		memcpy(ptr+strlen(type),value,strlen(value));
+		fseek(conf,0,SEEK_SET);
+		fwrite(rd,sizeof(char),strlen(rd),conf);
+		fclose(conf);
+		return 0;
+	}
+	fclose(conf);
+	return -1;
 }
 
 int32 readConfigFile()
@@ -84,13 +105,13 @@ int32 readConfigFile()
 
             if(0 == strcmp("SERVER_ID", pi8Token))
             {
-               gstConfigs.ui64ServID = strtol(pi8Value,NULL,0);
+               gstConfigs.ui64ServID = strtol(pi8Value,NULL,10);
                printf("SeverID = %ld\n",gstConfigs.ui64ServID);
             }
 
             if(0 == strcmp("PORT", pi8Token))
             {
-               gstConfigs.ui32Port = strtol(pi8Value,NULL,0);
+               gstConfigs.ui32Port = strtol(pi8Value,NULL,10);
             }
                                    
         }
@@ -142,7 +163,7 @@ void RequestServID()
 
    struct sockaddr_in6 addr_ipv6 = {0};
    int8 achAddr[2 * MAX_LINE_LENGTH] = {0}; 
-   int8 achRqstMsg[] = "NEW$00000"; 
+   int8 achRqstMsg[] = "JOIN$00000"; 
    int32 i32Retval = 0;
    int size = sizeof(struct sockaddr_in6);
    int8 * pi8SavePtr = NULL;
@@ -161,7 +182,7 @@ void RequestServID()
        achAddr[strlen(achAddr)-1] = '\0';
    }
    i32Retval =  setAddrIpv6(&addr_ipv6,gstConfigs.ui32Port,achAddr);
-   //i32Retval =  setAddrIpv6(&addr_ipv6,5003,achAddr);
+   /*i32Retval =  setAddrIpv6(&addr_ipv6,5003,achAddr);*/
 
    if(0 == i32Retval)
    {
@@ -172,14 +193,17 @@ void RequestServID()
                 {
                      pi8Token = strtok_r(achRqstMsg ,DELIMITER , &pi8SavePtr);  
                      pi8Value = strtok_r(NULL , DELIMITER , &pi8SavePtr);
-                      if(0 == strcmp(pi8Token, "NEW"))
+                      if(0 == strcmp(pi8Token, "JOIN"))
                       {
                          /*strcat(achServID,pi8Value);
                          gstConfigs.ui64ServID = strtoll(achServID,NULL,0);*/
                          gstConfigs.ui64ServID = atoi(pi8Value);
                          printf("SeverID = %ld %s\n",gstConfigs.ui64ServID, achServID);
                          /*Write new ID into config file*/
-                         ChangeServID();
+                         /*ChangeServID();*/
+												 if(strcmp(pi8Value,"00000")!=0){
+													 writeConf(CONFIG_FILE,"SERVER_ID=",pi8Value);
+												 }
 
                       }
                 } 

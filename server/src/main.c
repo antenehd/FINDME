@@ -137,11 +137,16 @@ if(0 > (readConfigFile()))
 
 FINDME_LOG("INFO :Reading Configuration successful\n");
 
-ui64ServID = strtol(MSERVERID,NULL,0);
+ui64ServID = strtol(MSERVERID,NULL,10);
 if(ui64ServID == gstConfigs.ui64ServID)
 {
      /*New server, so request for an ID*/
      RequestServID();
+		 if(gstConfigs.ui64ServID==0){	
+				FINDME_LOG("INFO :Failed to get server id from master server.\n");
+				return -1;				
+		 }  			
+		
 }
 
 /* Create the threads*/
@@ -175,7 +180,7 @@ while(1)
       }
       /*Check for the ID*/
       pi8Token = strtok_r(pachTestArray ,DELIMITER , &pi8SavePtr);
-      ui64ID = strtol(pi8Token,NULL,0);
+      ui64ID = strtol(pi8Token,NULL,10);
 
       
       if(0 == isclient(ui64ID))
@@ -217,7 +222,7 @@ return 0;
 
 
 /*
-000000000$QUERY
+000000000$QUERY;
 1000001$QUERY$NAME$raghu$10.19.19\n
 
 */

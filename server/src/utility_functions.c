@@ -330,7 +330,7 @@ stRecord * SearchRecord_New(uint32 ui32QueryMask , int8 *pi8Query)
                          }
                              break;
                 case CLIENTID :
-                                   ui64RecId = strtol(pi8Query,NULL,0);
+                                   ui64RecId = strtol(pi8Query,NULL,10);
                          if( ui64RecId == pstPlaceHolder->pstValue->ui64RecNum)
                          {
                               pstRetval = pstPlaceHolder->pstValue;
@@ -685,7 +685,7 @@ uint32 FillRecord(stRecord * pstActRec,int8 * pi8MsgPtr)
 	  }
           else if(0 == strcmp(pi8Token,"TIMESTAMP"))
 	  {
-                  pstRedAdd->ui64LastUpdate = strtol(pi8Value,NULL,0);
+                  pstRedAdd->ui64LastUpdate = strtol(pi8Value,NULL,10);
                   ui32BitMask |= TIMESTAMP;
 	  }
           pi8Token = strtok_r(NULL , DELIMITER , &pi8SavePtr);
@@ -741,7 +741,7 @@ void  HandleServNew(stRcvdMsg * pstRcvdMsg ,int8 * pi8MsgPtr,uint64 ui64ID)
     if(0 == strcmp("CLIENTID",pi8Token))
     {
         pi8Token = strtok_r(NULL , DELIMITER , &pi8SavePtr);
-        ui64RecId = strtol(pi8Token,NULL,0);
+        ui64RecId = strtol(pi8Token,NULL,10);
         if(NULL == (pstRedAdd = SearchRecord(ui64RecId)))
        {
            /*New record should be created for a new client*/
@@ -778,7 +778,7 @@ if(NULL !=  pstRcvdMsg && (NULL != pi8MsgPtr))
   if(0 == strcmp(pi8Token , "CLIENTID"))
   {
      pi8Token = strtok_r(NULL , DELIMITER , &pi8SavePtr);
-     ui64RecId = strtol(pi8Token,NULL,0);
+     ui64RecId = strtol(pi8Token,NULL,10);
 
   /*Look for the client record and then update the client*/
      if(NULL != (pstRedAdd = SearchRecord(ui64RecId)))

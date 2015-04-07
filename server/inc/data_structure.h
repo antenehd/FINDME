@@ -4,7 +4,8 @@
 #define CLI_PORT_NUM  7000
 #define SERV_PORT_NUM 46000
 
-#define MSERVERID "00000001"
+#define MAX_WRITE_STRING	200
+#define MSERVERID "00000"
 #define CONFIG_FILE "Findme.conf"
 #define LOG_FILE  "Log_File.txt"
 #define FINDME_LOG(...) {printf(__VA_ARGS__);fprintf(fpLog, __VA_ARGS__);} 
