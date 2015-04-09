@@ -21,6 +21,7 @@ extern mqd_t gMsgQID;
 extern int32 gUDPCliSockFD;
 extern int32 gUDPServSockFD;
 extern FILE * fpLog;
+extern struct sockaddr_in6 masterSrvIpv6;
 stConfigFileItems gstConfigs;
 /*
 void ChangeServID()
@@ -100,7 +101,15 @@ int32 readConfigFile()
             pi8Value = strtok_r(NULL ,"=" , &pi8SavePtr);
             if(0 == strcmp("MASTER_IP", pi8Token))
             {
-               memcpy(gstConfigs.achServerIP, pi8Value, strlen(pi8Value));
+							memset(gstConfigs.achServerIP,0,sizeof(gstConfigs.achServerIP));
+							if(strcnt(pi8Value,':') <= 1)
+						  {
+					       MapV4toV6(pi8Value);
+						  }
+							else
+                 memcpy(gstConfigs.achServerIP, pi8Value, strlen(pi8Value));
+							if(gstConfigs.achServerIP[strlen(gstConfigs.achServerIP)-1]=='\n')
+							   gstConfigs.achServerIP[strlen(gstConfigs.achServerIP)-1]='\0';
             }
 
             if(0 == strcmp("SERVER_ID", pi8Token))
@@ -122,21 +131,33 @@ int32 readConfigFile()
   return i32retval;
 }
 
-void MapV4toV6( int8 * achAddr)
+/*void MapV4toV6( int8 * achAddr)
 {
 
  int8 achbuff[] = "::ffff:";
 
- /*create Ipv4 mapped IPv6 address*/ 
+ //create Ipv4 mapped IPv6 address
  strcat(achAddr,achbuff);
  strcat(achAddr,gstConfigs.achServerIP);
  achAddr[strlen(achAddr)-1] = '\0';
  printf("Server IP = %s\n", achAddr);
 
+}*/
+
+void MapV4toV6( int8 * achAddr)
+{
+
+ int8 achbuff[] = "::ffff:";
+
+ /*create Ipv4 mapped IPv6 address*/
+ strcat(gstConfigs.achServerIP,achbuff);
+ strcat(gstConfigs.achServerIP,achAddr);
+ /*achAddr[strlen(achAddr)-1] = '\0';*/
+ printf("Server IP = %s\n", achAddr);
+
 }
-
-
 int setAddrIpv6(struct sockaddr_in6 *addr_ipv6,uint16_t port,char *ipv6){
+			printf("ipv6 addr %s\n",ipv6);
         if(addr_ipv6&&ipv6){
                 addr_ipv6->sin6_family=AF_INET6;
                 addr_ipv6->sin6_port=htons(port);
@@ -147,7 +168,27 @@ int setAddrIpv6(struct sockaddr_in6 *addr_ipv6,uint16_t port,char *ipv6){
         }
         return -1;
 }
+void disjoinMstSrv(){
+	int8 servId[6];
+	/*send join to master server*/
+	memset(servId,0,6);
+	sprintf(servId,"%05ld",gstConfigs.ui64ServID);
+	sendToMSrvr(servId,"DISJOIN");
+}
+void joinMstSrv(){
+	int8 servId[6];
+	/*setup master server address*/
+	memset(&masterSrvIpv6,0,sizeof(masterSrvIpv6));
+	setAddrIpv6(&masterSrvIpv6,gstConfigs.ui32Port,gstConfigs.achServerIP);
 
+	/*send join to master server*/
+	memset(servId,0,6);
+	sprintf(servId,"%05ld",gstConfigs.ui64ServID);
+	sendToMSrvr(servId,"JOIN");
+
+	/*recive join message from master server*/
+	recvMsg();
+}
 
 int strcnt(const int8 *str, int8 c)
 {
@@ -157,10 +198,64 @@ int strcnt(const int8 *str, int8 c)
             total++;
     return total;
 }
+int recvMsg(){
+	 int8 * pi8SavePtr = NULL;
+   int8 * pi8Token = NULL;
+   int8 * pi8Value = NULL;
+	 int8 achRqstMsg[] = "JOIN$00000";
+    
+	 if(recvfrom(gUDPServSockFD ,achRqstMsg ,strlen(achRqstMsg) , 0 , NULL, NULL) > 0)
+       {
+          pi8Token = strtok_r(achRqstMsg ,DELIMITER , &pi8SavePtr);  
+          pi8Value = strtok_r(NULL , DELIMITER , &pi8SavePtr);
+          if(0 == strcmp(pi8Token, "JOIN"))
+          {
+            /*strcat(achServID,pi8Value);*/
+             gstConfigs.ui64ServID = strtoll(pi8Value,NULL,10);
+             /*gstConfigs.ui64ServID = atoi(pi8Value);*/
+             /*printf("SeverID = %ld %s\n",gstConfigs.ui64ServID, achServID);*/
+             /*Write new ID into config file*/
+             /* ChangeServID();*/
+						if(strcmp(pi8Value,"00000")!=0){
+						   writeConf(CONFIG_FILE,"SERVER_ID=",pi8Value);
+					  }
 
+          }
+    } 
+  return 0;
+}
+int sendMsg(char *msg,int sock,struct sockaddr_in6 *addr,int size){
+	printf("SendMsg\n");
+	if(msg && addr){
+		if(sendto(sock,msg,strlen(msg),0,(struct sockaddr*)addr,size)<0){
+			perror("send failed");
+    	return -1;							
+		}
+		return 0;
+	}
+	return -1;
+}
+
+void setupAndSendMsg(char* msg,char *msgType,int sock,struct sockaddr_in6 *addr,int size){
+	char reply[1024];
+	if(msg && addr){
+		memset(reply,0,1024);
+    strcpy(reply,msgType);
+		strcat(reply,DELIMITER);
+		strcat(reply,msg);
+    printf("setupAndSendMsg\n");
+		sendMsg(reply,sock,addr,size);
+		
+	}	
+}
+
+int sendToMSrvr(char *msg,char *msgType){
+	setupAndSendMsg(msg,msgType,gUDPServSockFD,&masterSrvIpv6,sizeof(masterSrvIpv6));
+	return 0;
+}
 void RequestServID()
 {
-
+/*
    struct sockaddr_in6 addr_ipv6 = {0};
    int8 achAddr[2 * MAX_LINE_LENGTH] = {0}; 
    int8 achRqstMsg[] = "JOIN$00000"; 
@@ -171,7 +266,7 @@ void RequestServID()
    int8 * pi8Value = NULL;
    int32  bytes = 0; 
    int8 achServID[30]= {"000"}; 
-    /*Look for ':' to identify the IPversion*/
+    //Look for ':' to identify the IPversion
    if(strcnt(gstConfigs.achServerIP,':') <= 1)
    {
        MapV4toV6(achAddr);
@@ -182,11 +277,11 @@ void RequestServID()
        achAddr[strlen(achAddr)-1] = '\0';
    }
    i32Retval =  setAddrIpv6(&addr_ipv6,gstConfigs.ui32Port,achAddr);
-   /*i32Retval =  setAddrIpv6(&addr_ipv6,5003,achAddr);*/
+   //i32Retval =  setAddrIpv6(&addr_ipv6,5003,achAddr);
 
    if(0 == i32Retval)
    {
-        /* Send initial request to the server */
+        // Send initial request to the server 
         if((bytes = sendto(gUDPServSockFD,achRqstMsg,strlen(achRqstMsg),0,(struct sockaddr *)&addr_ipv6,size)) >= 0)
         {
                 if(recvfrom(gUDPServSockFD ,achRqstMsg ,strlen(achRqstMsg) , 0 , NULL, NULL) > 0)
@@ -195,12 +290,12 @@ void RequestServID()
                      pi8Value = strtok_r(NULL , DELIMITER , &pi8SavePtr);
                       if(0 == strcmp(pi8Token, "JOIN"))
                       {
-                         /*strcat(achServID,pi8Value);
-                         gstConfigs.ui64ServID = strtoll(achServID,NULL,0);*/
+                         //strcat(achServID,pi8Value);
+                         gstConfigs.ui64ServID = strtoll(achServID,NULL,0);
                          gstConfigs.ui64ServID = atoi(pi8Value);
                          printf("SeverID = %ld %s\n",gstConfigs.ui64ServID, achServID);
-                         /*Write new ID into config file*/
-                         /*ChangeServID();*/
+                         //Write new ID into config file
+                        // ChangeServID();
 												 if(strcmp(pi8Value,"00000")!=0){
 													 writeConf(CONFIG_FILE,"SERVER_ID=",pi8Value);
 												 }
@@ -212,7 +307,7 @@ void RequestServID()
         {
            perror("Sendto");
         }
-   }
+   }*/
 }
 
 

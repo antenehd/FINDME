@@ -114,6 +114,7 @@ void sighandler_SIGINT()
   pthread_mutex_unlock(&stRecMutex);
   mq_unlink(MQ_NAME);
   fflush(fpLog);
+	disjoinMstSrv();
   exit(0);
 }
 
@@ -516,7 +517,7 @@ void HandleCliQuery(stRcvdMsg * pstRcvdMsg , int8 * pi8MsgPtr,uint64 ui64ID)
  int8 * pi8SavePtr = NULL;
  int8 * pi8Token = NULL;
  int8 * pi8Value = NULL;
- uint64 ui64RecId = 0;
+ /*uint64 ui64RecId = 0;*/
  uint32 ui32BitMask = 0;
  uint32 ui32QueryMask = 0;
  stRecord * pstRedAdd = NULL;

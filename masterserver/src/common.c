@@ -56,8 +56,8 @@ int writeConf(char *filename,char *type,char *value){
 	char *ptr;
 	char rd[MAX_WRITE_STRING];
 	conf=fopen(filename,"r+");
-	memset(rd,0,MAX_STRING);
-	fread(rd,sizeof(char),MAX_STRING-1,conf);
+	memset(rd,0,MAX_WRITE_STRING);
+	fread(rd,sizeof(char),MAX_WRITE_STRING-1,conf);
 	ptr=strstr(rd,type);
 	if(ptr){
 		memcpy(ptr+strlen(type),value,strlen(value));
@@ -72,9 +72,9 @@ int writeConf(char *filename,char *type,char *value){
 
 /*sends "JOIN" and "DSJOIN" messages depending on "msgType"*/
 void setupAndSendMsg(char* srvId,char *msgType,int sock,skaddr *addr,int size){
-	char reply[SYNC_MSG_LEN];
+	char reply[JOIN_MSG_LEN];
 	if(srvId && addr){
-		memset(reply,0,SYNC_MSG_LEN);
+		memset(reply,0,JOIN_MSG_LEN);
     strcpy(reply,msgType);
 		strcat(reply,DELIMITER);
 		strcat(reply,srvId);

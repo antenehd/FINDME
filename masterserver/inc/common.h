@@ -3,7 +3,7 @@
 #define MAX_STRING	100 /*maximum word size in a conf file to be read*/
 #define MAX_WRITE_STRING	200 /*maximum size of the text in the conf file to be written to*/
 #define DELIMITER "$"
-#define SYNC_MSG_LEN 10
+#define JOIN_MSG_LEN 13
 #define CM_MAX_MSG_LEN 1024
 
 typedef struct sockaddr skaddr;

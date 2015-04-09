@@ -83,3 +83,163 @@ INFO :Sockets created
 INFO :Message Queue Created
 INFO :Reading Configuration successful
 INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Failed to get server id from master .
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Failed to get server id from master .
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+Master server refused the JOIN request.
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+Master server refused the JOIN request.
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+Master server refused the JOIN request.
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Reading Configuration successful
+INFO :Thread Creation successful

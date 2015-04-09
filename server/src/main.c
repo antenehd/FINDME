@@ -24,6 +24,7 @@ int32 gUDPCliSockFD = 0;
 int32 gUDPServSockFD = 0;
 mqd_t gMsgQID = 0;
 FILE * fpLog = NULL;
+struct sockaddr_in6 masterSrvIpv6;
 
 extern stConfigFileItems gstConfigs;
 int32 CreateUDPSock(uint32 PortNum)
@@ -86,7 +87,7 @@ int8*  pachTestArray = NULL;
 int8 * pi8Token = NULL;
 int8 * pi8SavePtr = NULL;
 uint64 ui64ID = 0;
-uint64 ui64ServID = 0;
+/*uint64 ui64ServID = 0;*/
 uint32 priority = 1;
 pthread_t prcs_thread = {0};
 
@@ -137,23 +138,31 @@ if(0 > (readConfigFile()))
 
 FINDME_LOG("INFO :Reading Configuration successful\n");
 
-ui64ServID = strtol(MSERVERID,NULL,10);
-if(ui64ServID == gstConfigs.ui64ServID)
+/*ui64ServID = strtol(MSERVERID,NULL,10);*/
+//send JOIN message
+joinMstSrv();
+
+if(gstConfigs.ui64ServID==0){	
+	FINDME_LOG("Master server refused the JOIN request.\n");
+	return -1;				
+}  
+/*if(ui64ServID == gstConfigs.ui64ServID)
 {
-     /*New server, so request for an ID*/
+     //New server, so request for an ID
      RequestServID();
 		 if(gstConfigs.ui64ServID==0){	
-				FINDME_LOG("INFO :Failed to get server id from master server.\n");
+				FINDME_LOG("INFO :Failed to get server id from master .\n");
 				return -1;				
 		 }  			
 		
 }
+*/
 
 /* Create the threads*/
 if(pthread_create(&prcs_thread , NULL , &ProcessThreadStart, NULL) != 0){
         FINDME_LOG("ERROR :Thread Creation unsuccessful\n");
         return -1;
-	}
+}
 
 FINDME_LOG("INFO :Thread Creation successful\n");
 fflush(fpLog);
@@ -216,6 +225,8 @@ while(1)
 }
 
 #endif
+
+disjoinMstSrv();
 
 return 0;
 }

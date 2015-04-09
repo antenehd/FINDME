@@ -92,6 +92,7 @@ void delSrvId(char array[][6],int indx,int saved){
 /*deletes serveraddress */
 void delSrvAddr(skaddr array[],int indx,int saved){
 	int i;
+	printf("delet serveaddr %d indx %d\n",saved,indx);
 	if(array){
 		for(i=indx;i<(saved-1);i++){
 			memset(&array[i],0,sizeof(array[i]));

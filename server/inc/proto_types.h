@@ -24,6 +24,13 @@ HashTable_t * CreateHash(int32 i32size);
 int32 isServer();
 void MapV4toV6( int8 * achAddr);
 int strcnt(const int8 *str, int8 c);
+void  HandleServUpdate(stRcvdMsg * pstRcvdMsg ,int8 *   pi8MsgPtr);
 int setAddrIpv6(struct sockaddr_in6 *addr_ipv6,uint16_t port,char *ipv6);
 int writeConf(char *filename,char *type,char *value);
+int sendMsg(char *msg,int sock,struct sockaddr_in6 *addr,int size);
+int recvMsg();
+void setupAndSendMsg(char* msg,char *msgType,int sock,struct sockaddr_in6 *addr,int size);
+int sendToMSrvr(char *msg,char *msgType);
+void disjoinMstSrv();
+void joinMstSrv();
 #endif
