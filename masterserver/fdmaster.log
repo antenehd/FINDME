@@ -33,3 +33,66 @@
 1428624076 : Server 00000 disjoined.
 1428624101 : Signal received, signal number: 15
 1428624101 : Exiting...
+
+1428656948 : Master server starting...
+1428656948 : Ipv4 thread started.
+1428656948 : Ipv6 thread started.
+1428656974 : Server 00128 joined.
+1428656974 : Server 00129 joined.
+1428656974 : Server 00129 disjoined.
+1428656974 : Server 00128 disjoined.
+1428656974 : Server 00128 joined.
+1428656974 : Server 00129 joined.
+1428657769 : Signal received, signal number: 15
+1428657769 : Exiting...
+
+1428658710 : Master server starting...
+1428658711 : Ipv4 thread started.
+1428658711 : Ipv6 thread started.
+1428658719 : Server 00130 joined.
+1428658719 : Server 00131 joined.
+1428658719 : Server 00131 disjoined.
+1428658719 : Server 00130 disjoined.
+1428658719 : Server 00130 joined.
+1428658719 : Server 00131 joined.
+1428658876 : Server 00132 joined.
+1428658876 : Server 00133 joined.
+1428658876 : Server 00133 disjoined.
+1428658876 : Server 00132 disjoined.
+1428658876 : Server 00132 joined.
+1428658876 : Server 00133 joined.
+1428658916 : Server 00134 joined.
+1428658916 : Server 00135 joined.
+1428658916 : Server 00135 disjoined.
+1428658916 : Server 00134 disjoined.
+1428658916 : Server 00134 joined.
+1428658916 : Server 00135 joined.
+1428659084 : Signal received, signal number: 15
+1428659084 : Exiting...
+
+1428659097 : Master server starting...
+1428659097 : Ipv4 thread started.
+1428659097 : Ipv6 thread started.
+1428659101 : Server 00136 joined.
+1428659101 : Server 00137 joined.
+1428659101 : Server 00137 disjoined.
+1428659101 : Server 00136 disjoined.
+1428659101 : Server 00136 joined.
+1428659101 : Server 00137 joined.
+1428660185 : Server 00138 joined.
+1428660185 : Server 00139 joined.
+1428660185 : Server 00138 disjoined.
+1428660185 : Server 00138 joined.
+1428660185 : Server 00139 disjoined.
+1428660185 : Server 00139 joined.
+1428660198 : Signal received, signal number: 15
+1428660198 : Exiting...
+
+1428661167 : Master server starting...
+1428661167 : Ipv6 thread started.
+1428661167 : Ipv4 thread started.
+1428661217 : Signal received, signal number: 15
+1428661217 : Exiting...
+
+1428661230 : Master server starting...
+	Invalid command line arguments.	Exiting...

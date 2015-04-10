@@ -1,4 +1,5 @@
 #include "sys/select.h"
+/*#define MAX(x,y) {(x>y) ? x:y}*/
 #include "common.c"
 void setmsg(char *msg,char*srvid,char*msgtype,char *result){
 	if(result){
@@ -9,6 +10,7 @@ void setmsg(char *msg,char*srvid,char*msgtype,char *result){
 		strcat(result,msg);
 	}
 }
+
 void parseSrvId(char *msg,char *srvId){
 	char *tempSrvId;
   if(msg && srvId){
@@ -24,8 +26,9 @@ void parseSrvId(char *msg,char *srvId){
 			printf("Error: Master server response is incorrect");
 	}
 }
-int main(){
+void test(){
 	char msg[100];
+	char bigmsg[1050];
 	char srvId4[6],srvId6[6];
 	uint16_t port=5004;
 	uint16_t rm_port=5003;
@@ -34,7 +37,9 @@ int main(){
 	int sock4,sock6;
 	int size4=sizeof(skaddr_in);
 	int size6=sizeof(skaddr_in6);
+	struct timeval tm;
 	fd_set fdset;
+
 	//create sockets
 	printf("Create socket.\n");
 	sock4=creatUdpSocketIpv4();
@@ -187,5 +192,102 @@ int main(){
 	printf("TEST 4 FINISHED\n");
 //TEST4 FINISHED
 
+//TEST5 STARTING
+	printf("\nTEST 5 (UNKNOWN MESSAGES) STARTING\n");
+
+	//send ipv4 unknown message
+  memset(msg,0,100);
+	setmsg("MSG$FROM$IPV4SEVER",srvId4,"DSJOIN",msg);
+	printf("IPV4: sending ipv4 unknow message(DSJOIN,missing I) message:%s\n",msg);
+	sendMsg(msg,sock4,(skaddr *)&rm_addr4,size4);
+
+	//send ipv6 unknown message
+	memset(msg,0,100);
+	setmsg("MSG$FROM$IPV6SEVER",srvId6,"DSJOIN",msg);
+	printf("IPV6: sending ipv6 unknow message(DSJOIN,missing I) message: %s\n",msg);
+	sendMsg(msg,sock6,(skaddr *)&rm_addr6,size6);
 	
+	//IPV4 waiting for unknown response
+	printf("IPV4: waiting for unknown message.\n");
+  printf("IPV6: waiting for unknow message.\n");
+
+	//use select to waite for a response
+	tm.tv_sec=3;
+	FD_ZERO(&fdset);
+	FD_SET(sock4,&fdset);
+ 	select(sock4+1,&fdset,NULL,NULL,&tm);
+	if(FD_ISSET(sock4,&fdset)){	
+		memset(msg,0,100);
+		rcvMsg(sock4,msg,NULL,size4);
+		printf("IPV4: unknown message response : %s\n",msg);
+	}
+	else
+		printf("IPV4 : no response with in 3 secs from master server for unknow message\n");
+	
+
+	FD_ZERO(&fdset);
+	FD_SET(sock6,&fdset);
+ 	select(sock6+1,&fdset,NULL,NULL,&tm);
+	if(FD_ISSET(sock6,&fdset)){	
+		memset(msg,0,100);
+		rcvMsg(sock6,msg,NULL,size6);
+		printf("IPV6: unknown message response : %s\n",msg);
+	}
+	else
+		printf("IPV6 : no response with in 3 secs from master server for unknow message\n");
+
+	printf("TEST 5 FINISHED\n");
+//TEST5 FINISHED
+
+//TEST6 STARTING
+	printf("\nTEST 6 (out of limit datagrams, more than 1048 bytes) STARTING\n");
+
+	//send ipv4 big message
+  memset(bigmsg,'a',1050);
+	//setmsg("MSG$FROM$IPV4SEVER",srvId4,"DSJOIN",msg);
+	printf("IPV4: sending ipv4 unknow message(DSJOIN,missing I) message len:%d\n",strlen(bigmsg));
+	sendMsg(bigmsg,sock4,(skaddr *)&rm_addr4,size4);
+
+	//send ipv6 big message
+	memset(bigmsg,'A',1050);
+	//setmsg("MSG$FROM$IPV6SEVER",srvId6,"DSJOIN",msg);
+	printf("IPV6: sending ipv6 unknow message(DSJOIN,missing I) message len: %d\n",strlen(bigmsg));
+	sendMsg(bigmsg,sock6,(skaddr *)&rm_addr6,size6);
+	
+	//IPV4 waiting for unknown response
+	printf("IPV4: waiting for response for outof limit datagram.\n");
+  printf("IPV6: waiting for response for outof limit datagram.\n");
+
+	//use select to waite for a response
+	tm.tv_sec=3;
+	FD_ZERO(&fdset);
+	FD_SET(sock4,&fdset);
+ 	select(sock4+1,&fdset,NULL,NULL,&tm);
+	if(FD_ISSET(sock4,&fdset)){	
+		memset(bigmsg,0,1050);
+		rcvMsg(sock4,bigmsg,NULL,size4);
+		printf("IPV4: unknown message response : %s\n",bigmsg);
+	}
+	else
+		printf("IPV4 : no response with in 3 secs from master server for unknow message\n");
+	
+	tm.tv_sec=3;
+	FD_ZERO(&fdset);
+	FD_SET(sock6,&fdset);
+ 	select(sock6+1,&fdset,NULL,NULL,&tm);
+	if(FD_ISSET(sock6,&fdset)){	
+		memset(bigmsg,0,1050);
+		rcvMsg(sock6,bigmsg,NULL,size6);
+		printf("IPV6: unknown message response : %s\n",msg);
+	}
+	else
+		printf("IPV6 : no response with in 3 secs from master server for unknow message\n");
+
+	printf("TEST 6 FINISHED\n");
+//TEST5 FINISHED	
+	
+}
+
+int main(){
+	test();
 }

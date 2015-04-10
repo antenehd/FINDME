@@ -29,7 +29,7 @@ char servIdsIpv6[MAX_NUM_SERVS][SRV_ADDR_LEN];
 skaddr ipv4[MAX_NUM_SERVS]; /*stores ipv4 server addresses*/
 skaddr ipv6[MAX_NUM_SERVS]; /*stores ipv6 server addresses*/
 
-/*assigns server id for new server. 'srvId' should be length 6 array*/
+/*assigns server id for newn server. 'srvId' should be length 6 array*/
 void assignId(char *srvId, int type){
 	pthread_mutex_lock(&mtx);
 	if(type==IPV4 && savedIpv4<maxNmSrvs && starSrvId<65535){
@@ -93,7 +93,6 @@ void saveServ(skaddr *addr,char *srvId,int addrType){
 /*deletes serverId */
 void delSrvId(char array[][6],int indx,int saved){
 	int i;
-	printf("arry: %s indx: %d SAVED: %d\n",array[indx],indx,saved);
 	if(array){
 		for(i=indx;i<(saved-1);i++)
 			strcpy(array[i],array[i+1]);		
@@ -103,7 +102,6 @@ void delSrvId(char array[][6],int indx,int saved){
 /*deletes serveraddress */
 void delSrvAddr(skaddr array[],int indx,int saved){
 	int i;
-	printf("delet serveaddr %d indx %d\n",saved,indx);
 	if(array){
 		for(i=indx;i<(saved-1);i++){
 			memset(&array[i],0,sizeof(array[i]));
@@ -158,7 +156,6 @@ void updateSrvs(char *msg,char *srvId){
 	int excluded=0;
 	if(msg){
 		pthread_mutex_lock (&mtx);
-		printf("sending updates for serv : %s \n",msg);
 		for(i=0;i<savedIpv4;i++){
 			if(excluded == 1 || strcmp(servIdsIpv4[i],srvId)!=0){
 				printf("sending updates for IPV4 SRV : %s \n",servIdsIpv4[i]);
@@ -173,7 +170,6 @@ void updateSrvs(char *msg,char *srvId){
 		pthread_mutex_lock(&mtx);
 		for(i=0;i<savedIpv6;i++){
 			if(excluded == 1 || strcmp(servIdsIpv6[i],srvId)!=0){
-				printf("sending updates for IPV6 SRV : %s \n",servIdsIpv6[i]);
 				sendMsg(msg,socket_ipv6,&ipv6[i],sizeof(skaddr_in6));
 			}
 			else
@@ -190,9 +186,8 @@ void  handlMsg(char *msg, int sock, skaddr *addr,int size,int type){
 	time_t currTime;
 
 	currTime = time(NULL);
-	printf("message received %s\n",msg);
 	memset(srvId,0,SRV_ADDR_LEN);
-	if(msg && addr){
+	if(msg && addr && strlen(msg)<=1048){
 
 		msgType=parseTocken(msg,1,DELIMITER);
 		getSrvId(msg,srvId);
@@ -203,7 +198,7 @@ void  handlMsg(char *msg, int sock, skaddr *addr,int size,int type){
 			}
 			else if(strcmp(msgType,JOIN)==0){
 				if(strcmp(srvId,NEWSERVER)==0){
-					assignId(srvId,type); printf("assignid %s\n",srvId);
+					assignId(srvId,type); 
 				}
 				if(strcmp(srvId,NEWSERVER)!=0){
 					saveServ(addr,srvId,type);
@@ -213,7 +208,6 @@ void  handlMsg(char *msg, int sock, skaddr *addr,int size,int type){
 				setupAndSendMsg(srvId,JOIN,sock,addr,size);
 			}
 			else if(strcmp(msgType,DSJOIN)==0 && (strcmp(srvId,BAD_SRV_ID)!=0)){
-				printf("disjoin %s\n",srvId);
 				removeServ(srvId,type);				
 				setupAndSendMsg(srvId,DSJOIN,sock,addr,size);
 				LOG("%ld : Server %s disjoined.\n",currTime,srvId);
@@ -304,7 +298,7 @@ int copyIpAddr(char *arg,char *ipAddr,int size){
 		strcpy(ipAddr,arg);
 		return 0;
 	}
-	printf("Invalid ip address given\n");
+	LOG("Invalid ip address given\n");
 	return -1;
 }
 
@@ -316,7 +310,8 @@ int copyPort(char *arg,uint16_t *port){
 			return 0;
 		}			
 	}
-	printf("Invalid port number given\n");
+  printf("ERROR : Invalid port number given\n");
+	LOG("ERROR : Invalid port number given\n");
 	return -1;
 }
 

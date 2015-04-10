@@ -53,7 +53,7 @@ int main(int argc,char *argv[]){
 	/*try to read ip addresses and port numbers from terminal*/
 	if(argc>2){
 		if(parseCmdArg(argc,argv,ipv4,ipv6,&port,&maxNmSrvs)==-1){
-			LOG("	Invalid command line arguments.	Exiting...\n");
+			LOG("	Invalid command line arguments.\nExiting...\n");
 			return -1;	
 		}	
 		argParsed=1;
@@ -62,7 +62,7 @@ int main(int argc,char *argv[]){
 	/*try to read ip addresses and port numbers from configuration file*/ 
 	if(argParsed==0){
 		if(readAddr(ipv4,ipv6,&port,&maxNmSrvs)==-1){
-			LOG("	Reading \"address.conf\" file failed. Exiting...\n");
+			LOG("	Reading \"address.conf\" file failed.\nExiting...\n");
 			printf("\"address.conf\" file is not properly configured\n");
 			return -1;
 		}
@@ -82,8 +82,8 @@ int main(int argc,char *argv[]){
 	
 	/*read the Starting server id that will be assigned by this relay server*/
 	if(readStarSrvId()==-1){
-		printf("Starting server id should found in \"servid\" file in the form: serverId=<starsrvid>\n");
-		LOG("	Reading starting server id from \"servid.conf\" failed. Exiting...\n");
+		printf("Starting server id should be found in \"servid\" file in the form: serverId=<starsrvid>\n");
+		LOG("	Reading starting server id from \"servid.conf\" file failed.\nExiting...\n");
 		return -1;
 	}
 
@@ -93,12 +93,12 @@ int main(int argc,char *argv[]){
 		socket_ipv4=creatUdpSocketIpv4();
 		
 		if(setAddrIpv4(&addr_ipv4,port,ipv4)==-1){
-			LOG("	Setting up ipv4 address failed. Exiting...\n");
+			LOG("	Setting up ipv4 address failed. \nExiting...\n");
 			return -1;
 		}
 		
 		if(bindSock(socket_ipv4,(skaddr*)&addr_ipv4,sizeof(addr_ipv4))==-1){
-			LOG("	Bind failed for ipv4 address. Exiting...\n");
+			LOG("	Bind failed for ipv4 address. \nExiting...\n");
 			return -1;
   	}			
 	}
@@ -109,11 +109,11 @@ int main(int argc,char *argv[]){
 		socket_ipv6=creatUdpSocketIpv6();
 
 		if(setAddrIpv6(&addr_ipv6,port,ipv6)==-1){
-			LOG("	Setting up ipv6 address failed. Exiting...\n");
+			LOG("	Setting up ipv6 address failed. \nExiting...\n");
 			return -1;
 		}
 		if(bindSock(socket_ipv6,(skaddr*)&addr_ipv6,sizeof(addr_ipv6))==-1){
-			LOG(" Bind failed for ipv6 address. Exiting...\n");
+			LOG(" Bind failed for ipv6 address. \nExiting...\n");
 			return -1;
 		}		
 	}
