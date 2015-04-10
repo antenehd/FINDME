@@ -32,14 +32,18 @@ int main(int argc,char *argv[]){
 	uint16_t port=0;
 	int argParsed=0;
 	time_t currTime;
+  
+	/*daemonize the program*/
+	daemon(1,0);
 
 	/*open log file for writing*/
 	if((fpLog=fopen(LOG_FILE,"a+"))==NULL)
-		printf("Opening logfile failed. Error:%s\n",strerror(errno));
+		LOG("Opening logfile failed. Error:%s\n",strerror(errno));
 
 	currTime = time(NULL);
-	LOG("%ld : Master server starting...\n",currTime);	
-	
+	LOG("\n%ld : Master server starting...\n",currTime);	
+	fflush(fpLog);
+
 	threadIpv4=0;
 	threadIpv6=0;
 	memset(ipv4,0,SIZE_IPV4);
@@ -67,9 +71,10 @@ int main(int argc,char *argv[]){
 	/*setup to handle the specified signals*/
 	sigAction(SIGHUP,&sig,signalHandler);
 	sigAction(SIGPIPE,&sig,signalHandler);
-	sigAction(SIGINT,&sig,signalHandler);
-	sigAction(SIGQUIT,&sig,signalHandler);
 	sigAction(SIGTERM,&sig,signalHandler);
+	/*sigAction(SIGINT,&sig,signalHandler);
+	sigAction(SIGQUIT,&sig,signalHandler);
+	*/
 
 
 	/*initialize mutex*/
@@ -115,9 +120,9 @@ int main(int argc,char *argv[]){
 
 	/*start ipv4 and ipv6 messages handling threads*/
 	if(strlen(ipv4)>0)
-		pthread_create(&threadIpv4,NULL, Ipv4Msgs, NULL);	
+		pthread_create(&threadIpv4,NULL, ipv4Msgs, NULL);	
 	if(strlen(ipv6)>0)
-		pthread_create(&threadIpv6,NULL, Ipv6Msgs, NULL);
+		pthread_create(&threadIpv6,NULL, ipv6Msgs, NULL);
 
 	/*join terminated threads*/
 	if(threadIpv4!=0)

@@ -29,12 +29,21 @@ char servIdsIpv6[MAX_NUM_SERVS][SRV_ADDR_LEN];
 skaddr ipv4[MAX_NUM_SERVS]; /*stores ipv4 server addresses*/
 skaddr ipv6[MAX_NUM_SERVS]; /*stores ipv6 server addresses*/
 
-/*assigns server id for new servers*/
-void assignId(char *srvId){
+/*assigns server id for new server. 'srvId' should be length 6 array*/
+void assignId(char *srvId, int type){
 	pthread_mutex_lock(&mtx);
-	starSrvId++;
-	sprintf(srvId,"%05hu",starSrvId);
-	writeConf(CONFILE_SRVID,"serverId=",srvId);	
+	if(type==IPV4 && savedIpv4<maxNmSrvs && starSrvId<65535){
+		starSrvId++;
+		sprintf(srvId,"%05hu",starSrvId);
+		writeConf(CONFILE_SRVID,"serverId=",srvId);	
+	}
+	else if(type==IPV6 && savedIpv6<maxNmSrvs){
+		starSrvId++;
+		sprintf(srvId,"%05hu",starSrvId);
+		writeConf(CONFILE_SRVID,"serverId=",srvId);	
+	}
+  else
+		strcpy(srvId,NEWSERVER);
 	pthread_mutex_unlock(&mtx);
 }
 
@@ -48,12 +57,12 @@ int checkSavedSrv(char *srvId,char arrySrvIds[][6],int saved){
 	return -1;
 }
 
-/*saves servers' address for future use*/
+/*saves server's address for future use*/
 void saveServ(skaddr *addr,char *srvId,int addrType){
 	int indx;
 	if(addr && srvId){
 		pthread_mutex_lock(&mtx);
-		if(addrType==IPV4){
+		if(addrType==IPV4 && savedIpv4<maxNmSrvs){
 			if((indx=checkSavedSrv(srvId,servIdsIpv4,savedIpv4))==-1){
 				indx=savedIpv4;
 				savedIpv4++;
@@ -64,7 +73,7 @@ void saveServ(skaddr *addr,char *srvId,int addrType){
 			memset(servIdsIpv4[indx],0,SRV_ADDR_LEN);
 			strcpy(servIdsIpv4[indx],srvId);
 		}
-		else if(addrType==IPV6){
+		else if(addrType==IPV6 && savedIpv6<maxNmSrvs){
 			if((indx=checkSavedSrv(srvId,servIdsIpv6,savedIpv6))==-1){
 				indx=savedIpv6;
 				savedIpv6++;
@@ -75,6 +84,8 @@ void saveServ(skaddr *addr,char *srvId,int addrType){
 			memset(servIdsIpv6[indx],0,SRV_ADDR_LEN);
 			strcpy(servIdsIpv6[indx],srvId);
 		}
+		else
+			strcpy(srvId,NEWSERVER);
 		pthread_mutex_unlock(&mtx);
 	}
 }
@@ -107,7 +118,6 @@ void removeServ(char *srvId,int addrType){
 	if(srvId){
 		pthread_mutex_lock(&mtx);
 		if(addrType==IPV4 && ((indx=checkSavedSrv(srvId,servIdsIpv4,savedIpv4))!=-1)){
-			printf("arr: %s\n",servIdsIpv4[indx]);
 			delSrvId(servIdsIpv4,indx,savedIpv4);
 			delSrvAddr(ipv4,indx,savedIpv4);
 			savedIpv4--;
@@ -125,36 +135,21 @@ void removeServ(char *srvId,int addrType){
 	}
 }
 
-/*it extracts servers address from the message if the server is new server it assignes new server address for the server*/
-void getSrvId(char *msg,char *strSrvId,int type){
+
+/*it extracts servers id from the message 'msg' and store it in 'strSrvId'.'strSrvId' is array of len 6*/
+void getSrvId(char *msg,char *strSrvId){
 	char *srvId;
-	if(type==IPV4 && savedIpv4<maxNmSrvs){
-	  if((srvId=parseTocken(msg,2,DELIMITER))!=NULL){
-			if(strlen(srvId)==(SRV_ADDR_LEN-1)){
-				if(strcmp(srvId,NEWSERVER)==0)
-					assignId(srvId);
-							
-				strcpy(strSrvId,srvId);
-				free(srvId);
-				return;
-			}
-			free(srvId);
-		}
-	}			
-	else if(type==IPV6 && savedIpv6<maxNmSrvs){	
+	if(msg && strSrvId){
 		if((srvId=parseTocken(msg,2,DELIMITER))!=NULL){
 			if(strlen(srvId)==(SRV_ADDR_LEN-1)){
-				if(strcmp(srvId,NEWSERVER)==0)
-					assignId(srvId);
-								
 				strcpy(strSrvId,srvId);
 				free(srvId);
 				return;
 			}
 			free(srvId);
 		}
-	}
-	strcpy(strSrvId,NEWSERVER);	
+		strcpy(strSrvId,BAD_SRV_ID);
+	}		
 }
 
 /*sends update messages to other servers, excluding the one who send the update message*/
@@ -198,20 +193,27 @@ void  handlMsg(char *msg, int sock, skaddr *addr,int size,int type){
 	printf("message received %s\n",msg);
 	memset(srvId,0,SRV_ADDR_LEN);
 	if(msg && addr){
+
 		msgType=parseTocken(msg,1,DELIMITER);
-		getSrvId(msg,srvId,type);
-		if(msgType){
+		getSrvId(msg,srvId);
+		
+		if(msgType && (strcmp(srvId,BAD_SRV_ID)!=0)){
 			if(strcmp(msgType,UPDATE)==0){
 				updateSrvs(msg,srvId);			
 			}
 			else if(strcmp(msgType,JOIN)==0){
+				if(strcmp(srvId,NEWSERVER)==0){
+					assignId(srvId,type); printf("assignid %s\n",srvId);
+				}
 				if(strcmp(srvId,NEWSERVER)!=0){
 					saveServ(addr,srvId,type);
 					LOG("%ld : Server %s joined.\n",currTime,srvId);
 				}
+				
 				setupAndSendMsg(srvId,JOIN,sock,addr,size);
 			}
-			else if(strcmp(msgType,DSJOIN)==0){
+			else if(strcmp(msgType,DSJOIN)==0 && (strcmp(srvId,BAD_SRV_ID)!=0)){
+				printf("disjoin %s\n",srvId);
 				removeServ(srvId,type);				
 				setupAndSendMsg(srvId,DSJOIN,sock,addr,size);
 				LOG("%ld : Server %s disjoined.\n",currTime,srvId);
@@ -251,7 +253,7 @@ void  signalHandler(int sigNumber){
 	}
 }
 /*checks for incoming ipv4 server messages*/
-void * Ipv4Msgs(){
+void * ipv4Msgs(){
 	char msg[MAX_MSG_LEN];
 	skaddr_in rmtAddrIpv4;
 	int sizev4=sizeof(skaddr_in);
@@ -274,7 +276,7 @@ void * Ipv4Msgs(){
 }
 
 /*checks for incoming ipv6 server messages*/
-void * Ipv6Msgs(){
+void * ipv6Msgs(){
 	char msg[MAX_MSG_LEN];
 	skaddr_in6 rmtAddrIpv6;
 	int sizev6=sizeof(skaddr_in6);
