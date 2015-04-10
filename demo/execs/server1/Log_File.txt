@@ -1,0 +1,10 @@
+INFO :Server Started
+INFO :Reading Configuration successful
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Thread Creation successful
+INFO :Server Started
+INFO :Reading Configuration successful
+INFO :Sockets created
+INFO :Message Queue Created
+INFO :Thread Creation successful
